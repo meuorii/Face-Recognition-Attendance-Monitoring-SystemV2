@@ -1,7 +1,7 @@
 from flask import Blueprint
 
 # Ensure the name and url_prefix match your index.py expectations
-admin_bp = Blueprint("admin_bp", __name__, url_prefix="/api/admin")
+admin_bp = Blueprint("admin_bp", __name__)
 
 # Use relative imports (single dot) for sibling files
 from . import auth_routes
