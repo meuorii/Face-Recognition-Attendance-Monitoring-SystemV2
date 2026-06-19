@@ -154,28 +154,40 @@ const StudentsInClass = () => {
         </div>
       </div>
 
-      {/* 2. SIMPLE INFO CARDS */}
+      {/* 2. PREMIUM INFO CARDS */}
       {selectedClassObj && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-[#0A3A23]/10 shadow-[0_12px_40px_rgba(10,58,35,0.04)] flex items-center gap-4">
-            <div className="p-3 bg-[#F5F3F0] rounded-xl text-[#0A3A23]">
-              <FaRegIdCard size={18} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 my-10">
+          
+          {/* School Year Card - Premium Modern White Background */}
+          <div className="bg-white p-8 rounded-[24px] border border-[#0A3A23]/10 shadow-[0_16px_45px_rgba(10,58,35,0.03)] flex items-center gap-5 group transition-all duration-300 hover:border-[#008C45]/20 hover:shadow-[0_16px_45px_rgba(10,58,35,0.06)]">
+            <div className="p-4 bg-[#F5F3F0] rounded-xl text-[#0A3A23] group-hover:scale-105 transition-transform group-hover:bg-[#008C45]/10 group-hover:text-[#008C45]">
+              <FaRegIdCard size={22} />
             </div>
             <div>
-              <span className="block text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-widest">School Year</span>
-              <h4 className="text-base font-black text-[#0A3A23] tracking-tight mt-0.5">{selectedClassObj.school_year || "Not set"}</h4>
+              <span className="block text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-widest">
+                School Year
+              </span>
+              <h4 className="text-lg font-black text-[#0A3A23] tracking-tight mt-1">
+                {selectedClassObj.school_year || "Not set"}
+              </h4>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-[#0A3A23]/10 shadow-[0_12px_40px_rgba(10,58,35,0.04)] flex items-center gap-4">
-            <div className="p-3 bg-[#F5F3F0] rounded-xl text-[#0A3A23]">
-              <FaLayerGroup size={18} />
+          {/* Semester Card - Premium Modern White Background */}
+          <div className="bg-white p-8 rounded-[24px] border border-[#0A3A23]/10 shadow-[0_16px_45px_rgba(10,58,35,0.03)] flex items-center gap-5 group transition-all duration-300 hover:border-[#008C45]/20 hover:shadow-[0_16px_45px_rgba(10,58,35,0.06)]">
+            <div className="p-4 bg-[#F5F3F0] rounded-xl text-[#0A3A23] group-hover:scale-105 transition-transform group-hover:bg-[#008C45]/10 group-hover:text-[#008C45]">
+              <FaLayerGroup size={22} />
             </div>
             <div>
-              <span className="block text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-widest">Semester</span>
-              <h4 className="text-base font-black text-[#0A3A23] tracking-tight mt-0.5">{formatSemester(selectedClassObj.semester)}</h4>
+              <span className="block text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-widest">
+                Semester
+              </span>
+              <h4 className="text-lg font-black text-[#0A3A23] tracking-tight mt-1">
+                {formatSemester(selectedClassObj.semester)}
+              </h4>
             </div>
           </div>
+
         </div>
       )}
 
