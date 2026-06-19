@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AOS from "aos";
 import { ToastContainer } from "react-toastify";
+import { LogOut } from "lucide-react"; 
 import "react-toastify/dist/ReactToastify.css";
 import "aos/dist/aos.css";
 
@@ -25,12 +26,14 @@ const InstructorDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeClassId, setActiveClassId] = useState(null);
   const [activeClass, setActiveClass] = useState(null);
+  
+  // State para sa Logout Confirmation Modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // 👉 Hide all layout elements when in attendance live session
   const hideLayout = activeTab === "session";
 
   useEffect(() => {
-    AOS.init({ duration: 600 });
+    AOS.init({ duration: 600, once: true });
 
     const token = localStorage.getItem("token");
     const userType = localStorage.getItem("userType");
@@ -43,7 +46,7 @@ const InstructorDashboard = () => {
     }
   }, [navigate]);
 
-  const handleLogout = () => {
+  const handleConfirmLogout = () => {
     localStorage.removeItem("userData");
     localStorage.removeItem("token");
     localStorage.removeItem("userType");
@@ -94,76 +97,119 @@ const InstructorDashboard = () => {
 
   return (
     <ModalManager>
-      <div className="bg-neutral-950 min-h-screen rounded-xl text-white relative overflow-hidden">
+      <div className="bg-[#F5F3F0] min-h-screen text-neutral-800 antialiased font-sans flex flex-col selection:bg-[#008C45]/20">
 
-        {/* Background Glow */}
+        {/* SIDEBAR CONTAINER */}
         {!hideLayout && (
-          <>
-            <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
-          </>
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            handleLogout={() => setShowLogoutModal(true)} 
+            isOpen={isSidebarOpen}
+            setIsOpen={setIsSidebarOpen}
+          />
         )}
 
-        {/* ===========================
-            SIDEBAR (Hidden in Live Session)
-        =========================== */}
-        {!hideLayout && (
-          <>
-            {/* Desktop Sidebar */}
-            <div className="hidden md:block fixed top-0 left-0 h-full w-64 bg-neutral-900 border-r border-green-500">
-              <Sidebar
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                handleLogout={handleLogout}
-                isOpen={isSidebarOpen}
-                setIsOpen={setIsSidebarOpen}
+        {/* MAIN WORKSPACE CONTENT CONTAINER */}
+        <div className={`flex-1 flex flex-col w-full min-h-screen transition-all duration-300 ${!hideLayout ? "md:pl-20" : ""}`}>
+          
+          {/* STICKY TOP NAVBAR */}
+          {!hideLayout && (
+            <div className="sticky top-0 right-0 left-0 z-10 w-full">
+              <Navbar
+                instructor={instructor}
+                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
               />
             </div>
+          )}
 
-            {/* Mobile Sidebar */}
-            <div className="md:hidden">
-              <Sidebar
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                handleLogout={handleLogout}
-                isOpen={isSidebarOpen}
-                setIsOpen={setIsSidebarOpen}
-              />
+          {/* INNER TAB DISPLAY COMPONENT FRAME */}
+          <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-[1600px] w-full mx-auto">
+            <div data-aos="fade-up" data-aos-delay="50" className="h-full">
+              {renderContent()}
             </div>
-          </>
-        )}
-
-        {/* ===========================
-            NAVBAR (Hidden in Live Session)
-        =========================== */}
-        {!hideLayout && (
-          <div className="fixed top-0 left-0 right-0 md:left-64 z-10">
-            <Navbar
-              instructor={instructor}
-              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-            />
-          </div>
-        )}
-
-        {/* ===========================
-            MAIN CONTENT AREA
-        =========================== */}
-        <div className={`flex-1 flex flex-col ${!hideLayout ? "md:ml-64" : ""}`}>
-
-          <main
-            className={`flex-1 overflow-y-auto ${
-              hideLayout ? "mt-0" : "mt-16"
-            }`}
-          >
-            <div data-aos="fade-up">{renderContent()}</div>
           </main>
         </div>
       </div>
 
+
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-10">
+          
+          {/* Animated Glassmorphic Backdrop overlay */}
+          <div 
+            className="absolute inset-0 animate-premium-blur cursor-pointer"
+            onClick={() => setShowLogoutModal(false)} 
+          />
+          
+          {/* Ultra-Premium Modal Card Container */}
+          <div 
+            className="bg-white w-full max-w-md rounded-3xl shadow-[0_25px_50px_-12px_rgba(10,58,35,0.15)] 
+              border border-neutral-200/50 relative z-10 p-8 sm:p-10 space-y-8 
+              animate-premium-bounce overflow-hidden"
+          >
+            {/* Ambient Background Glow Inside Card */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#008C45]/5 blur-3xl rounded-full pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-[#0A3A23]/5 blur-3xl rounded-full pointer-events-none" />
+
+            {/* Content Display: Generous Spacing Block */}
+            <div className="flex flex-col items-center text-center space-y-5 relative z-10">
+              
+              {/* Refined Geometric Icon Container */}
+              <div className="w-16 h-16 rounded-2xl bg-[#F5F3F0] border border-[#0A3A23]/10 
+                flex items-center justify-center text-[#0A3A23] shadow-inner tracking-wide
+                transition-transform duration-500 hover:rotate-12">
+                <LogOut size={26} className="ml-0.5 text-[#0A3A23]" />
+              </div>
+              
+              {/* Typography Structure */}
+              <div className="space-y-2">
+                <h3 className="text-xl font-extrabold text-[#0A3A23] tracking-tight sm:text-2xl">
+                  End Active Session?
+                </h3>
+                <p className="text-sm text-neutral-500 max-w-xs mx-auto leading-relaxed font-normal">
+                  You are about to sign out of your CCIT instructor account. You will need your identification credentials to log back in.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Action Buttons Interface with Enhanced Breathing Room */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 relative z-10">
+              
+              {/* Secondary Cancel Trigger */}
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                className="w-full sm:order-1 py-3 px-5 text-sm font-bold text-neutral-600 bg-[#F5F3F0] 
+                  hover:bg-neutral-200/70 hover:text-neutral-800 rounded-2xl transition-all duration-200 
+                  active:scale-[0.98] outline-none focus:ring-2 focus:ring-neutral-200"
+              >
+                Cancel
+              </button>
+
+              {/* Primary Signature Success Action Button */}
+              <button
+                type="button"
+                onClick={handleConfirmLogout}
+                className="w-full sm:order-2 py-3 px-5 text-sm font-bold text-white 
+                  bg-[#0A3A23] hover:bg-[#008C45] rounded-2xl shadow-lg 
+                  shadow-[#0A3A23]/10 hover:shadow-[#008C45]/20 hover:-translate-y-0.5
+                  transition-all duration-200 active:scale-[0.98] active:translate-y-0"
+              >
+                Confirm Sign Out
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
       <ToastContainer
         position="top-right"
         autoClose={3000}
-        theme="dark"
+        theme="light"
         newestOnTop={true}
         pauseOnHover={true}
       />
