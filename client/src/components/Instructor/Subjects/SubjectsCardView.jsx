@@ -19,14 +19,14 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
       if (Array.isArray(b.days)) b.days.forEach((d) => days.add(d));
       if (b.start && b.end) times.push(`${b.start}–${b.end}`);
     });
-    return `${Array.from(days).join(", ")} \n ${times.join(", ")}`;
+    return `${Array.from(days).join(", ")} • ${times.join(", ")}`;
   };
 
   return (
     <div className="space-y-8">
       
-      {/* Modern Premium Card Grid Layer */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+      {/* Structural Minimalist Card Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {currentItems.length === 0 ? (
           <div className="col-span-full bg-white p-16 text-center rounded-[32px] border border-[#0A3A23]/10 text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest shadow-[0_20px_50px_rgba(10,58,35,0.02)]">
             No classes found.
@@ -39,92 +39,91 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
             return (
               <div
                 key={c._id}
-                className="bg-white rounded-[32px] p-7 border border-[#0A3A23]/10 shadow-[0_16px_45px_rgba(10,58,35,0.03)]
-                  hover:shadow-[0_24px_60px_rgba(10,58,35,0.08)] transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between group"
+                className="bg-white rounded-[24px] p-6 border border-[#0A3A23]/10 shadow-[0_12px_40px_rgba(10,58,35,0.04)]
+                  hover:shadow-[0_20px_50px_rgba(10,58,35,0.09)] transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between group"
               >
-                <div>
-                  {/* Premium Header Block */}
-                  <div className="flex justify-between items-start gap-4 border-b border-[#0A3A23]/5 pb-5 mb-6">
-                    <div>
-                      <span className="block font-black text-[#0A3A23] text-2xl group-hover:text-[#008C45] transition-colors tracking-tight">
-                        {c.subject_code}
-                      </span>
-                      <span className="block text-xs font-bold text-[#0A3A23]/50 truncate max-w-[190px] uppercase tracking-wide mt-1">
-                        {c.subject_title}
-                      </span>
-                    </div>
+                <div className="space-y-5">
+                  {/* Flat Identity Top row */}
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="block font-black text-[#0A3A23] text-2xl group-hover:text-[#008C45] transition-colors tracking-tighter">
+                      {c.subject_code}
+                    </span>
                     
-                    <span className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase shadow-sm border transition-all
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase transition-all
                       ${c.is_attendance_active 
-                        ? "bg-[#008C45] text-white border-[#008C45] animate-pulse" 
-                        : "bg-[#F5F3F0] text-[#0A3A23]/40 border-[#0A3A23]/5 group-hover:bg-white group-hover:border-[#0A3A23]/10"}`}
+                        ? "bg-[#008C45] text-white animate-pulse" 
+                        : "bg-[#0A3A23]/5 text-[#0A3A23]/40"}`}
                     >
+                      <span className={`w-1.5 h-1.5 rounded-full ${c.is_attendance_active ? "bg-white" : "bg-[#0A3A23]/30"}`} />
                       {c.is_attendance_active ? "Live" : "Off"}
                     </span>
                   </div>
 
-                  {/* High-Contrast Info Stack */}
-                  <div className="space-y-4 text-xs font-bold text-[#0A3A23]/70">
-                    <div className="flex items-start gap-3.5 bg-[#F5F3F0]/60 group-hover:bg-[#F5F3F0]/30 p-4 rounded-xl border border-[#0A3A23]/5 transition-colors">
-                      <div className="p-2 bg-[#0A3A23] group-hover:bg-[#008C45] text-white rounded-lg shrink-0 shadow-sm transition-colors">
-                        <CalendarDays size={14} strokeWidth={2.5} />
-                      </div>
-                      <p className="whitespace-pre-line uppercase tracking-wide leading-relaxed text-[#0A3A23] font-black">
-                        {formatScheduleBlocks(c.schedule_blocks)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3.5 bg-[#F5F3F0]/60 group-hover:bg-[#F5F3F0]/30 p-4 rounded-xl border border-[#0A3A23]/5 transition-colors">
-                      <div className="p-2 bg-[#0A3A23] group-hover:bg-[#008C45] text-white rounded-lg shrink-0 shadow-sm transition-colors">
-                        <Users size={14} strokeWidth={2.5} />
-                      </div>
-                      <span className="uppercase tracking-wider text-[#0A3A23] font-black">
-                        {c.course} • Section {c.section}
-                      </span>
-                    </div>
-
-                    {/* Operational Guardrails & Warnings (Simplified) */}
-                    {!c.is_attendance_active && (
-                      <div className="pt-2">
-                        {!hasSchedule && (
-                          <div className="flex items-center gap-2.5 text-red-600 bg-red-50/50 border border-red-200/40 p-3 rounded-xl text-[10px] font-black uppercase tracking-wider animate-pulse">
-                            <AlertTriangle size={14} /> Missing Schedule
-                          </div>
-                        )}
-                        {hasSchedule && !withinSchedule && (
-                          <div className="flex items-center gap-2.5 text-[#A37000] bg-amber-50/50 border border-amber-200/40 p-3 rounded-xl text-[10px] font-black uppercase tracking-wider">
-                            <AlertTriangle size={14} /> Time Inactive
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  <div>
+                    <h4 className="text-xs font-black text-[#0A3A23]/80 uppercase tracking-wide truncate">
+                      {c.subject_title}
+                    </h4>
                   </div>
+
+                  {/* Split Meta Information Columns */}
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#0A3A23]/5 text-[11px]">
+                    <div className="space-y-1">
+                      <span className="block text-[#0A3A23]/40 font-bold uppercase tracking-wider">Target Group</span>
+                      <div className="flex items-center gap-1.5 text-[#0A3A23] font-black">
+                        <Users size={12} className="text-[#008C45]" />
+                        <span className="truncate">{c.course} • {c.section}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="block text-[#0A3A23]/40 font-bold uppercase tracking-wider">Assigned Frame</span>
+                      <div className="flex items-center gap-1.5 text-[#0A3A23] font-black">
+                        <CalendarDays size={12} className="text-[#008C45]" />
+                        <span className="truncate uppercase">{hasSchedule ? formatScheduleBlocks(c.schedule_blocks) : "Unassigned"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Error Flag Placement */}
+                  {!c.is_attendance_active && (!hasSchedule || !withinSchedule) && (
+                    <div className="pt-1">
+                      {!hasSchedule ? (
+                        <div className="flex items-center gap-2 text-red-600 font-black text-[10px] uppercase tracking-wider">
+                          <AlertTriangle size={12} className="shrink-0" /> Missing Param
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-[#A37000] font-black text-[10px] uppercase tracking-wider">
+                          <AlertTriangle size={12} className="shrink-0" /> Inactive Window
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Premium Interactive Actions Layout (Simplified) */}
-                <div className="mt-8 pt-5 border-t border-[#0A3A23]/5">
+                {/* Streamlined Flat Action Layer */}
+                <div className="mt-6 pt-4 border-t border-[#0A3A23]/5">
                   {c.is_attendance_active ? (
                     <button
                       onClick={() => handleStop(c._id)}
                       disabled={loadingId === c._id}
-                      className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-white font-black text-xs uppercase tracking-widest
-                        bg-gradient-to-br from-red-500 to-red-700 hover:scale-[1.02] transition-all shadow-md active:scale-95 shadow-red-500/10"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-black text-xs uppercase tracking-widest
+                        bg-gradient-to-br from-red-500 to-red-700 hover:opacity-90 transition-all active:scale-95 shadow-sm"
                     >
-                      <StopCircle size={15} strokeWidth={2.5} />
-                      Stop Attendance
+                      <StopCircle size={14} strokeWidth={2.5} />
+                      Stop Execution
                     </button>
                   ) : (
                     <button
                       onClick={() => handleActivate(c._id)}
                       disabled={loadingId === c._id || !hasSchedule || !withinSchedule}
-                      className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95
+                      className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95
                         ${hasSchedule && withinSchedule
-                          ? "bg-gradient-to-br from-[#008C45] to-[#0A3A23] text-white cursor-pointer hover:scale-[1.02] hover:shadow-lg hover:shadow-[#008C45]/10"
+                          ? "bg-gradient-to-br from-[#008C45] to-[#0A3A23] text-white cursor-pointer hover:opacity-95 shadow-sm"
                           : "bg-neutral-100 text-neutral-400 border border-neutral-200 cursor-not-allowed shadow-none opacity-50"
                         }`}
                     >
-                      <PlayCircle size={15} strokeWidth={2.5} />
-                      Start Attendance
+                      <PlayCircle size={14} strokeWidth={2.5} />
+                      Trigger Live
                     </button>
                   )}
                 </div>

@@ -28,7 +28,7 @@ const InstructorStatCards = ({ overviewData = {}, setActiveTab }) => {
               const tab = statToTab[stat.key];
               if (tab) setActiveTab(tab);
             }}
-            className="group cursor-pointer bg-[#F5F3F0] p-8 rounded-[24px] border border-[#0A3A23]/5
+            className="group cursor-pointer bg-white p-8 rounded-[24px] border border-[#0A3A23]/5
               transition-all duration-500 ease-out relative overflow-hidden flex flex-col justify-between min-h-[210px]
               shadow-[0_12px_40px_rgba(10,58,35,0.08)] hover:shadow-[0_24px_50px_rgba(0,140,69,0.18)] 
               hover:-translate-y-2 active:scale-[0.98]"
@@ -43,7 +43,7 @@ const InstructorStatCards = ({ overviewData = {}, setActiveTab }) => {
                 <Icon size={22} strokeWidth={2.2} />
               </div>
               
-              <div className="p-2 rounded-xl bg-white/80 border border-transparent group-hover:border-[#008C45]/20 group-hover:bg-white transition-all duration-300">
+              <div className="p-2 rounded-xl bg-slate-50 border border-transparent group-hover:border-[#008C45]/20 group-hover:bg-white transition-all duration-300">
                 <ArrowUpRight size={16} className="text-[#0A3A23]/40 group-hover:text-[#008C45] transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
             </div>

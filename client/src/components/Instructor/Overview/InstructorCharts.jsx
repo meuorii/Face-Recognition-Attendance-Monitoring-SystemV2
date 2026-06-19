@@ -13,7 +13,7 @@ const InstructorCharts = ({ overviewData = {}, trendData = [] }) => {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
       {/* AREA CHART - Attendance Tracking */}
-      <div className="lg:col-span-2 bg-[#F5F3F0] p-10 rounded-[28px] border border-[#0A3A23]/5
+      <div className="lg:col-span-2 bg-white p-10 rounded-[28px] border border-[#0A3A23]/5
         shadow-[0_16px_45px_rgba(10,58,35,0.06)] flex flex-col justify-between min-h-[420px]">
         
         <div className="space-y-8">
@@ -70,7 +70,7 @@ const InstructorCharts = ({ overviewData = {}, trendData = [] }) => {
       </div>
 
       {/* PIE CHART - Rate Distribution */}
-      <div className="bg-[#F5F3F0] p-10 rounded-[28px] border border-[#0A3A23]/5
+      <div className="bg-white p-10 rounded-[28px] border border-[#0A3A23]/5
         shadow-[0_16px_45px_rgba(10,58,35,0.06)] flex flex-col justify-between min-h-[420px]">
         
         {/* Header Row */}
