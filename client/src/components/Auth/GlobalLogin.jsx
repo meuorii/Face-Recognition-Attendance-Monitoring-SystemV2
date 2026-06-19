@@ -1,7 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import AOS from "aos";
+import "aos/dist/aos.css";
 import { FaLock, FaUser } from "react-icons/fa";
 
 function GlobalLogin() {
@@ -10,13 +12,15 @@ function GlobalLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const passwordRef = useRef(null);  // <-- NEW: For auto-focus
+  const passwordRef = useRef(null);
 
   const BASE_URL = "http://127.0.0.1:8080/api";
 
-  // -----------------------------------------------------
-  // LOGIN FUNCTION
-  // -----------------------------------------------------
+  // Ino-initialize ang AOS animation kapag nag-load ang component
+  useEffect(() => {
+    AOS.init({ duration: 800, once: true });
+  }, []);
+
   const handleLogin = async () => {
     if (!userId || !password) {
       toast.error("Please fill in all fields.");
@@ -26,7 +30,6 @@ function GlobalLogin() {
     setLoading(true);
 
     try {
-      // Try Admin login
       const adminRes = await axios.post(`${BASE_URL}/admin/login`, {
         user_id: userId,
         password,
@@ -72,95 +75,153 @@ function GlobalLogin() {
     }
   };
 
-  // -----------------------------------------------------
-  // HANDLE ENTER KEY
-  // -----------------------------------------------------
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter") {
       if (field === "userId") {
-        // move to password field
         passwordRef.current.focus();
       } else if (field === "password") {
-        // attempt login
         handleLogin();
       }
     }
   };
 
-  // -----------------------------------------------------
-  // UI
-  // -----------------------------------------------------
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-neutral-950 text-white">
-      {/* Background Glow Effects */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
+    <div className="min-h-screen flex items-center justify-center bg-[#F5F3F0] p-4 sm:p-6 md:p-8 font-sans antialiased selection:bg-[#008C45]/20">
+      {/* Main Structural Wrapper - Dinagdagan ng data-aos="fade-up" */}
+      <div 
+        className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden grid md:grid-cols-12 min-h-[600px]"
+        data-aos="fade-up"
+      >
+        
+        {/* Left Side: Department Logo & Campus Building Image Banner */}
+        <div className="hidden md:flex md:col-span-5 relative bg-[#0A3A23] flex-col justify-between p-8 text-white overflow-hidden">
+          
+          {/* Custom Image: Premium Modern University/Campus Building */}
+          <img 
+            src="/images/homehero.jpg" 
+            alt="University Campus Building" 
+            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-25 select-none pointer-events-none"
+          />
 
-      <div className="relative z-10 w-full max-w-md bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 shadow-2xl">
-        <h2 className="text-3xl font-extrabold text-center bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent mb-2">
-          System Login
-        </h2>
-        <p className="text-center text-gray-400 mb-8 text-sm">
-          Enter your credentials to access your account.
-        </p>
-
-        <div className="space-y-5">
-          {/* User ID */}
-          <div className="relative">
-            <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-            <input
-              type="text"
-              placeholder="User ID"
-              className="w-full pl-10 pr-4 py-3 rounded-lg bg-white/10 border border-white/20 
-                text-white placeholder-gray-400 focus:outline-none focus:ring-2 
-                focus:ring-emerald-500 hover:border-emerald-400 hover:bg-white/20 
-                transition-all duration-300 ease-in-out"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, "userId")}
-            />
+          {/* Department Logo Container */}
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
+              <img 
+                src="/ccit-logo.png" 
+                alt="CCIT Logo" 
+                className="w-7 h-7 object-cover rounded-md opacity-90"
+              />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[11px] font-bold tracking-wider text-white">CCIT</span>
+              <span className="text-[9px] font-medium tracking-wide text-neutral-300 uppercase">Attendance Portal</span>
+            </div>
           </div>
 
-          {/* Password */}
-          <div className="relative">
-            <FaLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-            <input
-              type="password"
-              placeholder="Password"
-              ref={passwordRef}       // <-- NEW
-              className="w-full pl-10 pr-4 py-3 rounded-lg bg-white/10 border border-white/20 
-                text-white placeholder-gray-400 focus:outline-none focus:ring-2 
-                focus:ring-emerald-500 hover:border-emerald-400 hover:bg-white/20 
-                transition-all duration-300 ease-in-out"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, "password")}
-            />
+          {/* Core System Branding & Department Text */}
+          <div className="relative z-10 space-y-3">
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-[#008C45] bg-[#008C45]/10 px-2 py-0.5 rounded inline-block">
+                Biometric Login
+              </p>
+              <h3 className="text-xl font-semibold tracking-tight leading-tight text-white">
+                Face Recognition <br />Attendance System
+              </h3>
+            </div>
+            
+            <p className="text-[11px] text-neutral-300 font-normal leading-relaxed border-t border-white/10 pt-3">
+              College of Communication and Information Technology
+            </p>
           </div>
-
-          {/* Login Button */}
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full py-3 rounded-lg font-semibold text-white 
-              bg-gradient-to-r from-emerald-500 to-green-600 shadow-lg 
-              hover:from-green-500 hover:to-emerald-600 
-              hover:scale-[1.03] hover:shadow-emerald-500/40 
-              active:scale-95 transition-all duration-300 ease-in-out"
-          >
-            {loading ? "Verifying..." : "Login"}
-          </button>
         </div>
 
-        <p className="text-sm text-center text-gray-400 mt-6">
-          Need an account?{" "}
-          <span
-            className="text-emerald-400 hover:underline cursor-pointer"
-            onClick={() => navigate("/instructor/register")}
-          >
-            Register as Instructor
-          </span>
-        </p>
+        {/* Right Side: Compact Login Form */}
+        <div className="col-span-12 md:col-span-7 flex flex-col justify-center px-6 py-10 sm:px-12 md:px-16 bg-white">
+          <div className="w-full max-w-md mx-auto space-y-6">
+            
+            {/* Header Identity block */}
+            <div>
+              <h2 className="text-xl font-semibold text-[#0A3A23] tracking-tight">
+                System Sign In
+              </h2>
+              <p className="text-xs text-neutral-500 mt-1">
+                Provide your structural credentials to open your administrative dashboard.
+              </p>
+            </div>
+
+            {/* Form Controls */}
+            <div className="space-y-4">
+              
+              {/* User ID field */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-[#0A3A23]/80 block">
+                  User Identification Number
+                </label>
+                <div className="relative">
+                  <FaUser className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 text-sm" />
+                  <input
+                    type="text"
+                    placeholder="Enter Admin / Instructor ID"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg bg-[#F5F3F0]/60 border border-neutral-200 
+                      text-neutral-800 placeholder-neutral-400 focus:outline-none focus:bg-white
+                      focus:ring-1 focus:ring-[#008C45] focus:border-[#008C45] transition-all duration-150"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, "userId")}
+                  />
+                </div>
+              </div>
+
+              {/* Password field */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-[#0A3A23]/80 block">
+                  Password
+                </label>
+                <div className="relative">
+                  <FaLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 text-sm" />
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    ref={passwordRef}
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg bg-[#F5F3F0]/60 border border-neutral-200 
+                      text-neutral-800 placeholder-neutral-400 focus:outline-none focus:bg-white
+                      focus:ring-1 focus:ring-[#008C45] focus:border-[#008C45] transition-all duration-150"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, "password")}
+                  />
+                </div>
+              </div>
+
+              {/* Submission Button */}
+              <button
+                onClick={handleLogin}
+                disabled={loading}
+                className="w-full mt-2 py-2.5 rounded-lg text-sm font-medium text-white 
+                  bg-[#0A3A23] hover:bg-[#008C45] transition-colors duration-200
+                  disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                {loading ? "Verifying Credentials..." : "Authenticate Account"}
+              </button>
+            </div>
+
+            {/* Registration Anchor */}
+            <div className="pt-2 border-t border-neutral-100 text-center">
+              <p className="text-xs text-neutral-500">
+                Authorized Faculty without an account?{" "}
+                <button
+                  type="button"
+                  className="text-[#008C45] font-semibold hover:underline focus:outline-none ml-1"
+                  onClick={() => navigate("/instructor/register")}
+                >
+                  Register as Instructor
+                </button>
+              </p>
+            </div>
+
+          </div>
+        </div>
+
       </div>
     </div>
   );
