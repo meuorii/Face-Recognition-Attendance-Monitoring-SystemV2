@@ -1,441 +1,275 @@
 // src/components/Instructor/Subjects.jsx
 import { useEffect, useState } from "react";
-import {
-  getClassesByInstructor,
-  activateAttendance,
-  stopAttendance,
-  getInstructorById,
-} from "../../services/api";
+import { getClassesByInstructor, activateAttendance, stopAttendance, getInstructorById } from "../../services/api";
 import { toast } from "react-toastify";
+import { LayoutGrid, Table2, CalendarClock, BookOpenCheck } from "lucide-react";
 
-import {
-  BookOpen,
-  Clock,
-  Users,
-  PlayCircle,
-  StopCircle,
-  LayoutGrid,
-  Table2,
-  AlertTriangle,
-  CheckCircle2,
-  MinusCircle,
-} from "lucide-react";
+import SubjectsTableView from "./Subjects/SubjectsTableView";
+import SubjectsCardView from "./Subjects/SubjectsCardView";
 
 const Subjects = ({ onActivateSession }) => {
-  const SHOW_DEBUG = false;
-
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingId, setLoadingId] = useState(null);
-  const [viewMode, setViewMode] = useState("table"); // "card" | "table"
-
-  const [instructorData, setInstructorData] = useState(
-    JSON.parse(localStorage.getItem("userData"))
-  );
+  const [viewMode, setViewMode] = useState("table"); 
+  const [instructorData, setInstructorData] = useState(JSON.parse(localStorage.getItem("userData")));
+  const [time, setTime] = useState(new Date());
 
   const token = localStorage.getItem("token");
 
   useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
     if (instructorData?.instructor_id && token) fetchClasses();
+    return () => clearInterval(timer);
   }, []);
 
-  // ---------------------------------------------------------
-  // FETCH CLASSES
-  // ---------------------------------------------------------
   const fetchClasses = async () => {
     try {
-      const data = await getClassesByInstructor(
-        instructorData.instructor_id,
-        token
-      );
+      const data = await getClassesByInstructor(instructorData.instructor_id, token);
       setClasses(data || []);
     } catch (err) {
-      console.error("❌ Failed to load classes:", err.response?.data || err);
+      console.error("❌ Error loading classes:", err.response?.data || err);
       toast.error("Failed to load classes.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------------------------------------------------
-  // SCHEDULE VALIDATION
-  // ---------------------------------------------------------
   const isWithinSchedule = (schedule_blocks = []) => {
-    if (!Array.isArray(schedule_blocks) || schedule_blocks.length === 0)
-      return false;
-
-    const nowPH = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" })
-    );
-
+    if (!Array.isArray(schedule_blocks) || schedule_blocks.length === 0) return false;
+    const nowPH = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
     const dayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const currentDay = dayMap[nowPH.getDay()];
     const currentTime = nowPH.toTimeString().slice(0, 5);
 
     return schedule_blocks.some((b) => {
       if (!b.days || !b.start || !b.end) return false;
-      const dayMatch = b.days.includes(currentDay);
-      const timeMatch = currentTime >= b.start && currentTime <= b.end;
-      return dayMatch && timeMatch;
+      return b.days.includes(currentDay) && currentTime >= b.start && currentTime <= b.end;
     });
   };
 
-  // ---------------------------------------------------------
-  // ACTIVATE SESSION
-  // ---------------------------------------------------------
+  const getTodayClasses = () => {
+    const dayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const today = dayMap[new Date().getDay()];
+    return classes.filter(c => c.schedule_blocks?.some(b => b.days.includes(today)));
+  };
+
   const handleActivate = async (classId) => {
     try {
       setLoadingId(classId);
-
       const fresh = await getInstructorById(instructorData.instructor_id);
       localStorage.setItem("userData", JSON.stringify(fresh));
       setInstructorData(fresh);
 
       if (!fresh?.registered || !fresh.embeddings) {
-        toast.error("❌ You must register your face first!");
-        setLoadingId(null);
-        return;
-      }
-
-      const emb = fresh.embeddings || {};
-      const hasAnyAngle =
-        emb.front?.length === 512 ||
-        emb.left?.length === 512 ||
-        emb.right?.length === 512 ||
-        emb.up?.length === 512 ||
-        emb.down?.length === 512;
-
-      if (!hasAnyAngle) {
-        toast.error("⚠ At least ONE face angle must be registered.");
-        setLoadingId(null);
+        toast.error("❌ Face biometrics missing.");
         return;
       }
 
       const classInfo = classes.find((c) => c._id === classId);
-
-      if (!classInfo.schedule_blocks || classInfo.schedule_blocks.length === 0) {
-        toast.error("⚠ This class has no schedule. Please ask admin to set one.");
-        setLoadingId(null);
-        return;
-      }
-
       if (!isWithinSchedule(classInfo.schedule_blocks)) {
-        toast.error("⚠ You can only activate attendance during scheduled time.");
-        setLoadingId(null);
+        toast.error("⚠ Cannot activate outside your schedule.");
         return;
       }
 
       await activateAttendance(classId);
-      toast.success("✅ Attendance session activated!");
-
+      toast.success("✅ Attendance activated successfully.");
       fetchClasses();
       onActivateSession?.(classInfo);
     } catch (err) {
-      console.error("❌ Activation error:", err.response?.data || err);
-      toast.error(err.response?.data?.error || "Failed to activate session.");
+      toast.error(err.response?.data?.error || "Activation failed.");
     } finally {
       setLoadingId(null);
     }
   };
 
-  // ---------------------------------------------------------
-  // STOP SESSION
-  // ---------------------------------------------------------
   const handleStop = async (classId) => {
     try {
       setLoadingId(classId);
       await stopAttendance(classId);
-      toast.info("🛑 Attendance session stopped.");
+      toast.info("🛑 Attendance stopped.");
       fetchClasses();
     } catch (err) {
-      console.error("❌ Stop failed:", err.response?.data || err);
-      toast.error("Failed to stop session.");
+      toast.error("Failed to stop attendance.");
     } finally {
       setLoadingId(null);
     }
   };
 
-  const formatScheduleBlocks = (blocks) => {
-    if (!Array.isArray(blocks) || blocks.length === 0) return "No schedule";
+  const todayClasses = getTodayClasses();
 
-    const days = new Set();
-    const times = [];
-
-    blocks.forEach((b) => {
-      if (Array.isArray(b.days)) b.days.forEach((d) => days.add(d));
-      if (b.start && b.end) times.push(`${b.start}–${b.end}`);
-    });
-
-    return `${Array.from(days).join(", ")} • ${times.join(", ")}`;
-  };
-
-  // ---------------------------------------------------------
-  // SHARED ACTION BUTTON RENDERER
-  // ---------------------------------------------------------
-  const ActionButton = ({ c, withinSchedule, hasSchedule }) => {
-    if (c.is_attendance_active) {
-      return (
-        <button
-          onClick={() => handleStop(c._id)}
-          disabled={loadingId === c._id}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium
-            bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800
-            disabled:opacity-50 transition-all duration-200 whitespace-nowrap"
-        >
-          <StopCircle size={14} />
-          {loadingId === c._id ? "Stopping..." : "Stop"}
-        </button>
-      );
-    }
-
-    return (
-      <button
-        onClick={() => handleActivate(c._id)}
-        disabled={loadingId === c._id || !hasSchedule || !withinSchedule}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium
-          transition-all duration-200 whitespace-nowrap
-          ${
-            hasSchedule && withinSchedule
-              ? "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-green-600 hover:to-emerald-700"
-              : "bg-neutral-700 cursor-not-allowed opacity-50"
-          }`}
-      >
-        <PlayCircle size={14} />
-        {loadingId === c._id ? "Activating..." : "Activate"}
-      </button>
-    );
-  };
-
-  // ---------------------------------------------------------
-  // CARD VIEW
-  // ---------------------------------------------------------
-  const CardView = () => (
-    <div className="grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-      {classes.map((c) => {
-        const withinSchedule = isWithinSchedule(c.schedule_blocks);
-        const hasSchedule =
-          Array.isArray(c.schedule_blocks) && c.schedule_blocks.length > 0;
-
-        return (
-          <div
-            key={c._id}
-            className="bg-neutral-900 backdrop-blur-md rounded-2xl p-6 border border-white/10
-              hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/30
-              transition-all duration-300 hover:-translate-y-1 flex flex-col"
-          >
-            <h3 className="text-xl font-bold text-white">{c.subject_title}</h3>
-            <p className="text-sm text-gray-400 mb-4">{c.subject_code}</p>
-
-            <div className="text-sm text-gray-300 space-y-3 flex-1">
-              <p className="flex items-center gap-2">
-                <Clock size={15} className="text-emerald-400 shrink-0" />
-                {hasSchedule
-                  ? formatScheduleBlocks(c.schedule_blocks)
-                  : "No schedule set"}
-              </p>
-
-              <p className="flex items-center gap-2">
-                <Users size={15} className="text-emerald-400 shrink-0" />
-                {c.course} – {c.section}
-              </p>
-
-              <p className="flex items-center gap-2">
-                {c.is_attendance_active ? (
-                  <>
-                    <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                    <span className="text-emerald-400 font-semibold">Active</span>
-                  </>
-                ) : (
-                  <>
-                    <MinusCircle size={15} className="text-gray-500 shrink-0" />
-                    <span className="text-gray-400">Inactive</span>
-                  </>
-                )}
-              </p>
-
-              {!hasSchedule && !c.is_attendance_active && (
-                <p className="flex items-center gap-1.5 text-red-400 text-xs mt-2">
-                  <AlertTriangle size={13} />
-                  This class has no schedule.
-                </p>
-              )}
-
-              {hasSchedule && !withinSchedule && !c.is_attendance_active && (
-                <p className="flex items-center gap-1.5 text-yellow-400 text-xs mt-2">
-                  <AlertTriangle size={13} />
-                  Not within scheduled time.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-6">
-              <ActionButton
-                c={c}
-                withinSchedule={withinSchedule}
-                hasSchedule={hasSchedule}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  // ---------------------------------------------------------
-  // TABLE VIEW
-  // ---------------------------------------------------------
-  const TableView = () => (
-    <div className="overflow-x-auto rounded-2xl border border-white/10">
-      <table className="w-full text-sm text-left">
-        <thead>
-          <tr className="bg-neutral-800/80 text-gray-400 uppercase text-xs tracking-wider">
-            <th className="px-5 py-4">Subject</th>
-            <th className="px-5 py-4">Code</th>
-            <th className="px-5 py-4">Schedule</th>
-            <th className="px-5 py-4">Course & Section</th>
-            <th className="px-5 py-4">Status</th>
-            <th className="px-5 py-4 text-right">Action</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
-          {classes.map((c) => {
-            const withinSchedule = isWithinSchedule(c.schedule_blocks);
-            const hasSchedule =
-              Array.isArray(c.schedule_blocks) && c.schedule_blocks.length > 0;
-
-            return (
-              <tr
-                key={c._id}
-                className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors duration-150"
-              >
-                {/* Subject */}
-                <td className="px-5 py-4 font-semibold text-white whitespace-nowrap">
-                  {c.subject_title}
-                </td>
-
-                {/* Code */}
-                <td className="px-5 py-4 text-gray-400 whitespace-nowrap">
-                  {c.subject_code}
-                </td>
-
-                {/* Schedule */}
-                <td className="px-5 py-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="flex items-center gap-1.5 text-gray-300">
-                      <Clock size={13} className="text-emerald-400 shrink-0" />
-                      {hasSchedule
-                        ? formatScheduleBlocks(c.schedule_blocks)
-                        : <span className="text-gray-500 italic">No schedule set</span>}
-                    </span>
-                    {!hasSchedule && !c.is_attendance_active && (
-                      <span className="flex items-center gap-1 text-red-400 text-xs">
-                        <AlertTriangle size={11} /> No schedule assigned
-                      </span>
-                    )}
-                    {hasSchedule && !withinSchedule && !c.is_attendance_active && (
-                      <span className="flex items-center gap-1 text-yellow-400 text-xs">
-                        <AlertTriangle size={11} /> Outside scheduled time
-                      </span>
-                    )}
-                  </div>
-                </td>
-
-                {/* Course & Section */}
-                <td className="px-5 py-4">
-                  <span className="flex items-center gap-1.5 text-gray-300">
-                    <Users size={13} className="text-emerald-400 shrink-0" />
-                    {c.course} – {c.section}
-                  </span>
-                </td>
-
-                {/* Status */}
-                <td className="px-5 py-4">
-                  {c.is_attendance_active ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                      bg-emerald-500/15 text-emerald-400 text-xs font-semibold border border-emerald-500/30">
-                      <CheckCircle2 size={12} /> Active
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                      bg-neutral-700/50 text-gray-400 text-xs font-semibold border border-white/10">
-                      <MinusCircle size={12} /> Inactive
-                    </span>
-                  )}
-                </td>
-
-                {/* Action */}
-                <td className="px-5 py-4 text-right">
-                  <ActionButton
-                    c={c}
-                    withinSchedule={withinSchedule}
-                    hasSchedule={hasSchedule}
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-
-  // ---------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------
   return (
-    <div className="relative z-10 bg-neutral-950 min-h-screen p-8 rounded-2xl overflow-hidden">
+    <div className="space-y-12 px-4">
+      
+      {/* 1. HEADER & ICON TOGGLES */}
+      <div className="flex items-center justify-between border-b border-[#0A3A23]/5 pb-6">
+        <div>
+          <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">
+            Subjects
+          </h2>
+          <p className="text-[11px] text-[#008C45] font-extrabold tracking-widest uppercase mt-1">
+            Manage your class list and attendance
+          </p>
+        </div>
 
-      {/* Background glows */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full" />
-
-      {/* Header */}
-      <div className="relative z-10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-10">
-        <h2 className="text-3xl font-extrabold flex items-center gap-3 text-transparent bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text">
-          <BookOpen className="text-emerald-400" /> Your Classes
-        </h2>
-
-        {/* View Toggle */}
         {!loading && classes.length > 0 && (
-          <div className="flex items-center gap-1 bg-neutral-800 border border-white/10 rounded-xl p-1">
-            <button
-              onClick={() => setViewMode("card")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                ${
-                  viewMode === "card"
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                    : "text-gray-400 hover:text-gray-200"
-                }`}
-            >
-              <LayoutGrid size={16} />
-              Cards
-            </button>
+          <div className="flex items-center gap-1 bg-[#F5F3F0] border border-[#0A3A23]/5 rounded-xl p-1.5 shadow-sm">
             <button
               onClick={() => setViewMode("table")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                ${
-                  viewMode === "table"
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                    : "text-gray-400 hover:text-gray-200"
-                }`}
+              title="Table View"
+              className={`p-2 rounded-lg transition-all ${
+                viewMode === "table" 
+                  ? "bg-[#0A3A23] text-white shadow-md shadow-[#0A3A23]/10" 
+                  : "text-[#0A3A23]/40 hover:text-[#0A3A23] hover:bg-white"
+              }`}
             >
-              <Table2 size={16} />
-              Table
+              <Table2 size={16} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={() => setViewMode("card")}
+              title="Card View"
+              className={`p-2 rounded-lg transition-all ${
+                viewMode === "card" 
+                  ? "bg-[#0A3A23] text-white shadow-md shadow-[#0A3A23]/10" 
+                  : "text-[#0A3A23]/40 hover:text-[#0A3A23] hover:bg-white"
+              }`}
+            >
+              <LayoutGrid size={16} strokeWidth={2.5} />
             </button>
           </div>
         )}
       </div>
 
-      {/* Content */}
-      <div className="relative z-10">
+      {/* 2. PREMIUM METRIC GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        
+        {/* Card 1: Time, Date & Day (Premium Solid Dark Emerald Accent View) */}
+        <div className="lg:col-span-4 bg-[#0A3A23] p-10 rounded-[32px] shadow-[0_20px_50px_rgba(10,58,35,0.15)] flex flex-col justify-between min-h-[260px] text-white relative overflow-hidden group">
+          {/* Soft ambient background glow for premium depth */}
+          <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#008C45]/20 rounded-full blur-3xl pointer-events-none transition-all group-hover:bg-[#008C45]/30" />
+          
+          <div className="flex justify-between items-start relative z-10">
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-[#008C45] bg-white px-3.5 py-1.5 rounded-xl uppercase shadow-sm">
+                {time.toLocaleDateString("en-US", { weekday: 'long' })}
+              </span>
+              <h4 className="text-3xl font-black text-white pt-4 tracking-tight">
+                {time.toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}
+              </h4>
+            </div>
+            <div className="p-4 rounded-2xl bg-white/10 text-white border border-white/10 shadow-inner backdrop-blur-md">
+              <CalendarClock size={22} strokeWidth={2.5} />
+            </div>
+          </div>
+          
+          <div className="pt-8 border-t border-white/10 relative z-10">
+            <p className="text-[10px] font-black tracking-widest text-white/50 uppercase mb-1">Current Time</p>
+            <span className="text-4xl font-black text-white font-mono tracking-tight drop-shadow-sm">
+              {time.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Today's Class Schedule List (Modern Clean Minimalist View) */}
+        <div className="lg:col-span-8 bg-white p-10 rounded-[32px] border border-[#0A3A23]/5 shadow-[0_20px_50px_rgba(10,58,35,0.04)] min-h-[260px] flex flex-col justify-between">
+          <div className="flex justify-between items-center border-b border-[#0A3A23]/5 pb-5 mb-5">
+            <div>
+              <h4 className="text-xl font-black text-[#0A3A23] uppercase tracking-tight">Today's Classes</h4>
+              <p className="text-xs font-medium text-[#0A3A23]/50 mt-0.5">Your schedule for today</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-[#0A3A23]/5 text-[#0A3A23] border border-[#0A3A23]/5">
+              <BookOpenCheck size={20} strokeWidth={2.5} />
+            </div>
+          </div>
+
+          {/* Scrollable list layer */}
+          <div className="flex-1 overflow-y-auto max-h-[150px] space-y-3 pr-2 custom-scrollbar">
+            {loading ? (
+              <div className="h-full flex items-center justify-center py-6">
+                <p className="text-xs font-bold text-[#0A3A23]/40 uppercase tracking-wider animate-pulse">Loading schedule...</p>
+              </div>
+            ) : todayClasses.length > 0 ? (
+              todayClasses.map((tc, index) => {
+                const liveNow = isWithinSchedule(tc.schedule_blocks);
+                return (
+                  <div 
+                    key={index} 
+                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${
+                      liveNow 
+                        ? "bg-gradient-to-r from-[#008C45]/5 to-transparent border-[#008C45] shadow-[0_4px_20px_rgba(0,140,69,0.06)]" 
+                        : "bg-[#F5F3F0]/50 border-[#0A3A23]/5 hover:bg-[#F5F3F0] hover:border-[#0A3A23]/10"
+                    }`}
+                  >
+                    <div className="flex items-center gap-5 min-w-[75%]">
+                      <div className="min-w-[85px]">
+                        <span className={`text-xs font-black tracking-tight px-2.5 py-1 rounded-lg ${
+                          liveNow ? "bg-[#008C45] text-white" : "bg-[#0A3A23]/5 text-[#0A3A23]"
+                        }`}>
+                          {tc.subject_code}
+                        </span>
+                      </div>
+                      <div className="truncate pr-3">
+                        <p className="text-xs font-black text-[#0A3A23] truncate uppercase tracking-wide">
+                          {tc.subject_title}
+                        </p>
+                        <p className="text-[11px] font-medium text-[#0A3A23]/50 mt-1">
+                          Section: <strong className="text-[#0A3A23] font-black">{tc.section}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className={`text-[9px] font-black tracking-widest px-3 py-1.5 rounded-xl uppercase transition-all ${
+                        liveNow 
+                          ? "bg-[#008C45] text-white shadow-sm shadow-[#008C45]/20 animate-pulse" 
+                          : "bg-[#0A3A23]/5 text-[#0A3A23]/40 border border-[#0A3A23]/5"
+                      }`}>
+                        {liveNow ? "Ongoing" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="h-full flex items-center justify-center py-8">
+                <p className="text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest bg-[#F5F3F0] px-4 py-2 rounded-xl border border-[#0A3A23]/5">
+                  No classes scheduled for today.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* 3. DYNAMIC DATA VIEW LAYER */}
+      <div>
         {loading ? (
-          <p className="text-neutral-400">Loading classes...</p>
+          <div className="text-center py-12 text-sm font-bold text-[#0A3A23]/40 uppercase tracking-widest animate-pulse">
+            Loading classes...
+          </div>
         ) : classes.length > 0 ? (
-          viewMode === "card" ? <CardView /> : <TableView />
+          viewMode === "table" ? (
+            <SubjectsTableView 
+              classes={classes} 
+              isWithinSchedule={isWithinSchedule} 
+              handleActivate={handleActivate} 
+              handleStop={handleStop} 
+              loadingId={loadingId} 
+            />
+          ) : (
+            <SubjectsCardView 
+              classes={classes} 
+              isWithinSchedule={isWithinSchedule} 
+              handleActivate={handleActivate} 
+              handleStop={handleStop} 
+              loadingId={loadingId} 
+            />
+          )
         ) : (
-          <p className="text-neutral-400 mt-4 text-center">
-            No classes found. Please contact admin.
-          </p>
+          <div className="bg-[#F5F3F0] p-12 text-center rounded-[28px] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]/40 uppercase tracking-wider">
+            No classes found.
+          </div>
         )}
       </div>
     </div>
