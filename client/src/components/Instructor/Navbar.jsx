@@ -21,7 +21,7 @@ const Navbar = ({ instructor, onToggleSidebar }) => {
           Welcome back, <span className="text-[#008C45]">{displayName}</span>
         </h1>
         <p className="text-[10px] text-neutral-400 font-semibold tracking-wider uppercase mt-1.5 leading-none">
-          Academic Portal Management
+          Instructor Dashboard
         </p>
       </div>
 
