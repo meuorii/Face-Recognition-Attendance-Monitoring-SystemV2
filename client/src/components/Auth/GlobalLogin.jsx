@@ -36,7 +36,7 @@ function GlobalLogin() {
       });
 
       if (adminRes.data?.token) {
-        toast.success("Admin login successful!");
+        toast.success("Login successful!");
         localStorage.setItem("token", adminRes.data.token);
         localStorage.setItem("userType", "admin");
         localStorage.setItem("userData", JSON.stringify(adminRes.data.admin));
@@ -54,7 +54,7 @@ function GlobalLogin() {
           });
 
           if (instructorRes.data?.token) {
-            toast.success("Instructor login successful!");
+            toast.success("Login successful!");
             localStorage.setItem("token", instructorRes.data.token);
             localStorage.setItem("userType", "instructor");
             localStorage.setItem(
@@ -65,7 +65,7 @@ function GlobalLogin() {
             return;
           }
         } catch {
-          toast.error("Invalid credentials. Please check your ID or password.");
+          toast.error("Invalid ID or password.");
         }
       } else {
         toast.error("Server error. Please try again later.");
@@ -87,7 +87,7 @@ function GlobalLogin() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F5F3F0] p-4 sm:p-6 md:p-8 font-sans antialiased selection:bg-[#008C45]/20">
-      {/* Main Structural Wrapper - Dinagdagan ng data-aos="fade-up" */}
+      {/* Main Structural Wrapper */}
       <div 
         className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden grid md:grid-cols-12 min-h-[600px]"
         data-aos="fade-up"
@@ -122,10 +122,10 @@ function GlobalLogin() {
           <div className="relative z-10 space-y-3">
             <div className="space-y-1">
               <p className="text-[10px] uppercase tracking-widest font-bold text-[#008C45] bg-[#008C45]/10 px-2 py-0.5 rounded inline-block">
-                Biometric Login
+                Attendance System
               </p>
               <h3 className="text-xl font-semibold tracking-tight leading-tight text-white">
-                Face Recognition <br />Attendance System
+                Face Recognition <br />Portal
               </h3>
             </div>
             
@@ -142,10 +142,10 @@ function GlobalLogin() {
             {/* Header Identity block */}
             <div>
               <h2 className="text-xl font-semibold text-[#0A3A23] tracking-tight">
-                System Sign In
+                Sign In
               </h2>
               <p className="text-xs text-neutral-500 mt-1">
-                Provide your structural credentials to open your administrative dashboard.
+                Log in to open your dashboard.
               </p>
             </div>
 
@@ -155,13 +155,13 @@ function GlobalLogin() {
               {/* User ID field */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-[#0A3A23]/80 block">
-                  User Identification Number
+                  User ID
                 </label>
                 <div className="relative">
                   <FaUser className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 text-sm" />
                   <input
                     type="text"
-                    placeholder="Enter Admin / Instructor ID"
+                    placeholder="Enter your ID number"
                     className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg bg-[#F5F3F0]/60 border border-neutral-200 
                       text-neutral-800 placeholder-neutral-400 focus:outline-none focus:bg-white
                       focus:ring-1 focus:ring-[#008C45] focus:border-[#008C45] transition-all duration-150"
@@ -181,7 +181,7 @@ function GlobalLogin() {
                   <FaLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 text-sm" />
                   <input
                     type="password"
-                    placeholder="••••••••"
+                    placeholder="Enter your password"
                     ref={passwordRef}
                     className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg bg-[#F5F3F0]/60 border border-neutral-200 
                       text-neutral-800 placeholder-neutral-400 focus:outline-none focus:bg-white
@@ -201,20 +201,20 @@ function GlobalLogin() {
                   bg-[#0A3A23] hover:bg-[#008C45] transition-colors duration-200
                   disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
-                {loading ? "Verifying Credentials..." : "Authenticate Account"}
+                {loading ? "Checking details..." : "Login"}
               </button>
             </div>
 
             {/* Registration Anchor */}
             <div className="pt-2 border-t border-neutral-100 text-center">
               <p className="text-xs text-neutral-500">
-                Authorized Faculty without an account?{" "}
+                Don't have an instructor account?{" "}
                 <button
                   type="button"
                   className="text-[#008C45] font-semibold hover:underline focus:outline-none ml-1"
                   onClick={() => navigate("/instructor/register")}
                 >
-                  Register as Instructor
+                  Register here
                 </button>
               </p>
             </div>
