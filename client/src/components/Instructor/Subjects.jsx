@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { getClassesByInstructor, activateAttendance, stopAttendance, getInstructorById } from "../../services/api";
 import { toast } from "react-toastify";
-import { LayoutGrid, Table2, CalendarClock, BookOpenCheck } from "lucide-react";
+import { LayoutGrid, Table2, CalendarClock, BookOpenCheck, CalendarX } from "lucide-react"; // Idinagdag ang CalendarX dito
 
 import SubjectsTableView from "./Subjects/SubjectsTableView";
 import SubjectsCardView from "./Subjects/SubjectsCardView";
@@ -56,6 +56,7 @@ const Subjects = ({ onActivateSession }) => {
 
   const handleActivate = async (classId) => {
     try {
+      textId(classId);
       setLoadingId(classId);
       const fresh = await getInstructorById(instructorData.instructor_id);
       localStorage.setItem("userData", JSON.stringify(fresh));
@@ -145,7 +146,6 @@ const Subjects = ({ onActivateSession }) => {
         
         {/* Card 1: Time, Date & Day (Premium Solid Dark Emerald Accent View) */}
         <div className="lg:col-span-4 bg-[#0A3A23] p-10 rounded-[32px] shadow-[0_20px_50px_rgba(10,58,35,0.15)] flex flex-col justify-between min-h-[260px] text-white relative overflow-hidden group">
-          {/* Soft ambient background glow for premium depth */}
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#008C45]/20 rounded-full blur-3xl pointer-events-none transition-all group-hover:bg-[#008C45]/30" />
           
           <div className="flex justify-between items-start relative z-10">
@@ -231,9 +231,16 @@ const Subjects = ({ onActivateSession }) => {
                 );
               })
             ) : (
-              <div className="h-full flex items-center justify-center py-8">
-                <p className="text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest bg-[#F5F3F0] px-4 py-2 rounded-xl border border-[#0A3A23]/5">
-                  No classes scheduled for today.
+              /* PREMIUM MODERN EMPTY STATE WITH LUCIDE ICON */
+              <div className="flex flex-col items-center justify-center py-4 text-center animate-fade-in">
+                <div className="p-4 rounded-full bg-[#F5F3F0] text-[#0A3A23]/40 border border-[#0A3A23]/5 mb-3">
+                  <CalendarX size={26} strokeWidth={1.8} className="text-[#0A3A23]/40" />
+                </div>
+                <p className="text-xs font-black text-[#0A3A23]/70 uppercase tracking-wide">
+                  No classes scheduled for today
+                </p>
+                <p className="text-[11px] text-[#0A3A23]/40 font-medium mt-1 max-w-[280px] leading-relaxed">
+                  Your agenda is clear. Enjoy your free time or prepare for your upcoming sessions.
                 </p>
               </div>
             )}

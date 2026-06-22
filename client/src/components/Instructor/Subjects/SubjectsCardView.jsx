@@ -1,3 +1,4 @@
+// src/components/Instructor/Subjects/SubjectsCardView.jsx
 import { useState } from "react";
 import { CalendarDays, Users, AlertTriangle, PlayCircle, StopCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -5,7 +6,7 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6; // 6 cards per page
 
-  // Layout Framework for Card Pagination
+  // Layout for Card Pagination
   const totalPages = Math.max(Math.ceil(classes.length / itemsPerPage), 1);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -25,7 +26,7 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
   return (
     <div className="space-y-8">
       
-      {/* Structural Minimalist Card Grid */}
+      {/* Card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {currentItems.length === 0 ? (
           <div className="col-span-full bg-white p-16 text-center rounded-[32px] border border-[#0A3A23]/10 text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest shadow-[0_20px_50px_rgba(10,58,35,0.02)]">
@@ -43,7 +44,7 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
                   hover:shadow-[0_20px_50px_rgba(10,58,35,0.09)] transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between group"
               >
                 <div className="space-y-5">
-                  {/* Flat Identity Top row */}
+                  {/* Top Row: Subject Code & Status */}
                   <div className="flex items-center justify-between gap-4">
                     <span className="block font-black text-[#0A3A23] text-2xl group-hover:text-[#008C45] transition-colors tracking-tighter">
                       {c.subject_code}
@@ -59,16 +60,17 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
                     </span>
                   </div>
 
+                  {/* Subject Title */}
                   <div>
                     <h4 className="text-xs font-black text-[#0A3A23]/80 uppercase tracking-wide truncate">
                       {c.subject_title}
                     </h4>
                   </div>
 
-                  {/* Split Meta Information Columns */}
+                  {/* Metadata Columns (Simplified Labels) */}
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#0A3A23]/5 text-[11px]">
                     <div className="space-y-1">
-                      <span className="block text-[#0A3A23]/40 font-bold uppercase tracking-wider">Target Group</span>
+                      <span className="block text-[#0A3A23]/40 font-bold uppercase tracking-wider">Section</span>
                       <div className="flex items-center gap-1.5 text-[#0A3A23] font-black">
                         <Users size={12} className="text-[#008C45]" />
                         <span className="truncate">{c.course} • {c.section}</span>
@@ -76,31 +78,33 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
                     </div>
 
                     <div className="space-y-1">
-                      <span className="block text-[#0A3A23]/40 font-bold uppercase tracking-wider">Assigned Frame</span>
+                      <span className="block text-[#0A3A23]/40 font-bold uppercase tracking-wider">Schedule</span>
                       <div className="flex items-center gap-1.5 text-[#0A3A23] font-black">
                         <CalendarDays size={12} className="text-[#008C45]" />
-                        <span className="truncate uppercase">{hasSchedule ? formatScheduleBlocks(c.schedule_blocks) : "Unassigned"}</span>
+                        <span className="truncate uppercase">{hasSchedule ? formatScheduleBlocks(c.schedule_blocks) : "No Schedule"}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Error Flag Placement */}
+                  {/* Differentiated Warning Alerts */}
                   {!c.is_attendance_active && (!hasSchedule || !withinSchedule) && (
                     <div className="pt-1">
                       {!hasSchedule ? (
-                        <div className="flex items-center gap-2 text-red-600 font-black text-[10px] uppercase tracking-wider">
-                          <AlertTriangle size={12} className="shrink-0" /> Missing Param
+                        /* Missing Schedule - Secondary Green */
+                        <div className="flex items-center gap-2 text-[#950606] font-black text-[10px] uppercase tracking-wider">
+                          <AlertTriangle size={12} className="shrink-0" /> Missing Schedule
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-[#A37000] font-black text-[10px] uppercase tracking-wider">
-                          <AlertTriangle size={12} className="shrink-0" /> Inactive Window
+                        /* Not current time - Warning Accent Gold/Amber */
+                        <div className="flex items-center gap-2 text-[#FDCC0D] font-black text-[10px] uppercase tracking-wider">
+                          <AlertTriangle size={12} className="shrink-0" /> Not Your Schedule
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Streamlined Flat Action Layer */}
+                {/* Simplified Action Buttons */}
                 <div className="mt-6 pt-4 border-t border-[#0A3A23]/5">
                   {c.is_attendance_active ? (
                     <button
@@ -110,7 +114,7 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
                         bg-gradient-to-br from-red-500 to-red-700 hover:opacity-90 transition-all active:scale-95 shadow-sm"
                     >
                       <StopCircle size={14} strokeWidth={2.5} />
-                      Stop Execution
+                      Stop
                     </button>
                   ) : (
                     <button
@@ -123,7 +127,7 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
                         }`}
                     >
                       <PlayCircle size={14} strokeWidth={2.5} />
-                      Trigger Live
+                      Start
                     </button>
                   )}
                 </div>
@@ -133,7 +137,7 @@ const SubjectsCardView = ({ classes = [], isWithinSchedule, handleActivate, hand
         )}
       </div>
 
-      {/* Premium Minimalist Pagination Panel */}
+      {/* Pagination Panel */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white px-8 py-5 rounded-[24px] border border-[#0A3A23]/10 shadow-[0_10px_30px_rgba(10,58,35,0.02)]">
         <p className="text-xs text-[#0A3A23]/50 font-bold uppercase tracking-wider text-center sm:text-left">
           {classes.length === 0 ? (
