@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { getClassesByInstructor, activateAttendance, stopAttendance, getInstructorById } from "../../services/api";
 import { toast } from "react-toastify";
-import { LayoutGrid, Table2, CalendarClock, BookOpenCheck, CalendarX } from "lucide-react"; // Idinagdag ang CalendarX dito
+import { LayoutGrid, Table2, CalendarClock, BookOpenCheck, CalendarX } from "lucide-react"; 
 
 import SubjectsTableView from "./Subjects/SubjectsTableView";
 import SubjectsCardView from "./Subjects/SubjectsCardView";
@@ -54,10 +54,14 @@ const Subjects = ({ onActivateSession }) => {
     return classes.filter(c => c.schedule_blocks?.some(b => b.days.includes(today)));
   };
 
+  // =============================
+  // 🔹 ACTIVATE ATTENDANCE SESSION
+  // =============================
   const handleActivate = async (classId) => {
     try {
-      textId(classId);
       setLoadingId(classId);
+      
+      // 1. Kumuha ng pinakabagong biometrics status ng instructor
       const fresh = await getInstructorById(instructorData.instructor_id);
       localStorage.setItem("userData", JSON.stringify(fresh));
       setInstructorData(fresh);
@@ -67,29 +71,36 @@ const Subjects = ({ onActivateSession }) => {
         return;
       }
 
+      // 2. I-validate kung pasok sa oras ng schedule block
       const classInfo = classes.find((c) => c._id === classId);
-      if (!isWithinSchedule(classInfo.schedule_blocks)) {
+      if (!classInfo || !isWithinSchedule(classInfo.schedule_blocks)) {
         toast.error("⚠ Cannot activate outside your schedule.");
         return;
       }
 
-      await activateAttendance(classId);
+      // 3. Ipadala sa totoong post session endpoint gamit ang classId at instructor metadata
+      await activateAttendance(classId, instructorData.instructor_id, token);
       toast.success("✅ Attendance activated successfully.");
-      fetchClasses();
+      
+      // I-refresh ang view state at i-trigger ang live view tab switcher
+      await fetchClasses();
       onActivateSession?.(classInfo);
     } catch (err) {
-      toast.error(err.response?.data?.error || "Activation failed.");
+      toast.error(err.response?.data?.error || err.response?.data?.message || "Activation failed.");
     } finally {
       setLoadingId(null);
     }
   };
 
+  // =============================
+  // 🔹 STOP ATTENDANCE SESSION
+  // =============================
   const handleStop = async (classId) => {
     try {
       setLoadingId(classId);
-      await stopAttendance(classId);
+      await stopAttendance(classId, instructorData.instructor_id, token);
       toast.info("🛑 Attendance stopped.");
-      fetchClasses();
+      await fetchClasses();
     } catch (err) {
       toast.error("Failed to stop attendance.");
     } finally {

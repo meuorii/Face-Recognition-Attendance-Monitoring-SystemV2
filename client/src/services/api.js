@@ -29,26 +29,20 @@ export const registerInstructorFace = (payload) =>
 // ==============================
 // 🔹 Attendance Control
 // ==============================
-export const activateAttendance = async (classId) => {
-  const token = localStorage.getItem("token");
-  const userData = JSON.parse(localStorage.getItem("userData"));
-  const instructorId = userData?.instructor_id;
-
+export const activateAttendance = async (classId, instructorId, token) => {
   const res = await API.post(
     "/attendance/start-session",
-    { class_id: classId, instructor_id: instructorId }, 
+    { class_id: classId, instructor_id: instructorId },
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return res.data;
 };
 
-
-export const stopAttendance = async (classId) => {
-  const token = localStorage.getItem("token");
+export const stopAttendance = async (classId, instructorId, token) => {
   const res = await API.post(
     "/attendance/stop-session",
-    { class_id: classId },
-    { headers: { Authorization: `Bearer ${token}` }, timeout: 60000 }
+    { class_id: classId, instructor_id: instructorId },
+    { headers: { Authorization: `Bearer ${token}` } }
   );
   return res.data;
 };
@@ -223,5 +217,6 @@ export const getAttendanceLogsByStudent = async (id) => {
 };
 
 export default API;
+
 
 

@@ -43,18 +43,13 @@ const DailyLogsModal = ({ session }) => {
     }
   };
 
-  // ==============================
-  // EXPORT PDF (PER SESSION)
-  // ==============================
   const exportToPDF = () => {
     const doc = new jsPDF("p", "mm", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Logos
     doc.addImage("/ccit-logo.png", "PNG", 10, 10, 25, 25);
     doc.addImage("/prmsu.png", "PNG", pageWidth - 35, 10, 25, 25);
 
-    // University Header
     doc.setFont("times", "bold");
     doc.setFontSize(14);
     doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
@@ -69,15 +64,11 @@ const DailyLogsModal = ({ session }) => {
     doc.setFontSize(12);
     doc.text("COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY", pageWidth / 2, 45, { align: "center" });
 
-    // Title
     doc.setFontSize(14);
-    doc.setTextColor(10, 58, 35); // #0A3A23
+    doc.setTextColor(10, 58, 35);
     doc.text("DAILY ATTENDANCE REPORT", pageWidth / 2, 55, { align: "center" });
 
-    // Reset color for text
     doc.setTextColor(0, 0, 0);
-
-    // Session Info
     doc.setFontSize(12);
     doc.text(`Date: ${formatDate(session.date)}`, 20, 65);
     doc.text(`Subject: ${session.subject_code} – ${session.subject_title}`, 20, 72);
@@ -85,7 +76,6 @@ const DailyLogsModal = ({ session }) => {
     doc.text(`Semester: ${session.semester || "N/A"}`, 20, 86);
     doc.text(`School Year: ${session.school_year || "N/A"}`, 20, 93);
 
-    // Table
     autoTable(doc, {
       startY: 105,
       head: [["Student ID", "Name", "Status", "Time"]],
@@ -95,7 +85,7 @@ const DailyLogsModal = ({ session }) => {
         s.status || "—",
         s.status === "Absent" || !s.time ? "—" : formatTime(s.time),
       ]),
-      headStyles: { fillColor: [10, 58, 35], textColor: 255 }, // #0A3A23
+      headStyles: { fillColor: [10, 58, 35], textColor: 255 },
       styles: { fontSize: 11, halign: "center" },
     });
 
@@ -103,17 +93,17 @@ const DailyLogsModal = ({ session }) => {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white text-gray-800">
+    <div className="w-full bg-white text-gray-800">
       {/* Header Panel */}
-      <div className="mb-5 border-b border-gray-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 border-b border-gray-100 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2 text-[#0A3A23] tracking-tight">
-            <FaCalendarAlt className="text-[#008C45]" />
+          <h2 className="text-2xl font-extrabold flex items-center gap-3 text-[#0A3A23] tracking-tight">
+            <FaCalendarAlt className="text-[#008C45] text-3xl" />
             Daily Attendance Logs
           </h2>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-gray-400 text-sm mt-1.5">
             Session Date:{" "}
-            <span className="text-[#0A3A23] font-semibold bg-[#008C45]/10 px-2 py-0.5 rounded border border-[#008C45]/20">
+            <span className="text-[#0A3A23] font-semibold bg-[#008C45]/10 px-3 py-1 rounded-lg border border-[#008C45]/20 ml-1">
               {formatDate(session.date)}
             </span>
           </p>
@@ -121,7 +111,7 @@ const DailyLogsModal = ({ session }) => {
 
         <button
           onClick={exportToPDF}
-          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0A3A23] hover:bg-[#008C45] text-white font-medium shadow-md transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap"
+          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#0A3A23] hover:bg-[#008C45] text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2.5 whitespace-nowrap tracking-wide text-sm"
         >
           <FaFilePdf className="text-base" />
           Export Report
@@ -129,23 +119,23 @@ const DailyLogsModal = ({ session }) => {
       </div>
 
       {/* Meta Specs Ribbon */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 p-4 rounded-xl bg-[#F5F3F0] border border-gray-200 text-sm">
-        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">Subject</span><span className="font-semibold text-[#0A3A23] whitespace-nowrap">{session.subject_code}</span></div>
-        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">Section</span><span className="font-semibold text-[#0A3A23]">{session.section}</span></div>
-        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">Semester</span><span className="font-semibold text-[#0A3A23] whitespace-nowrap">{session.semester || "N/A"}</span></div>
-        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">S.Y.</span><span className="font-semibold text-[#0A3A23] whitespace-nowrap">{session.school_year || "N/A"}</span></div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6 p-4 rounded-2xl bg-[#F5F3F0] border border-gray-200/60 text-sm">
+        <div><span className="text-gray-400 block text-xs font-bold uppercase tracking-wider mb-1">Subject</span><span className="font-bold text-[#0A3A23] whitespace-nowrap">{session.subject_code}</span></div>
+        <div><span className="text-gray-400 block text-xs font-bold uppercase tracking-wider mb-1">Section</span><span className="font-bold text-[#0A3A23]">{session.section}</span></div>
+        <div><span className="text-gray-400 block text-xs font-bold uppercase tracking-wider mb-1">Semester</span><span className="font-bold text-[#0A3A23] whitespace-nowrap">{session.semester || "N/A"}</span></div>
+        <div><span className="text-gray-400 block text-xs font-bold uppercase tracking-wider mb-1">S.Y.</span><span className="font-bold text-[#0A3A23] whitespace-nowrap">{session.school_year || "N/A"}</span></div>
       </div>
 
-      {/* Desktop Table Container with Fixed Max-Height Scroll & Horizontal Scroll Protection */}
-      <div className="hidden md:block border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        <div className="max-h-[400px] overflow-y-auto overflow-x-auto custom-modal-scrollbar">
+      {/* Desktop Table Container - Max-height fixed to 320px to prevent overflow */}
+      <div className="hidden md:block border border-gray-200/80 rounded-2xl overflow-hidden bg-white shadow-sm">
+        <div className="max-h-[320px] overflow-y-auto overflow-x-auto custom-modal-scrollbar">
           <table className="min-w-full text-sm text-left border-collapse table-auto">
-            <thead className="bg-[#0A3A23] text-white sticky top-0 z-10">
+            <thead className="bg-[#0A3A23] text-white sticky top-0 z-10 shadow-sm">
               <tr className="whitespace-nowrap">
-                <th className="px-6 py-3.5 font-semibold tracking-wide w-[25%]">Student ID</th>
-                <th className="px-6 py-3.5 font-semibold tracking-wide w-[45%]">Name</th>
-                <th className="px-6 py-3.5 font-semibold tracking-wide text-center w-[15%]">Status</th>
-                <th className="px-6 py-3.5 font-semibold tracking-wide text-right w-[15%]">Time Logged</th>
+                <th className="px-8 py-3.5 font-semibold tracking-wide w-[25%]">Student ID</th>
+                <th className="px-8 py-3.5 font-semibold tracking-wide w-[45%]">Name</th>
+                <th className="px-8 py-3.5 font-semibold tracking-wide text-center w-[15%]">Status</th>
+                <th className="px-8 py-3.5 font-semibold tracking-wide text-right w-[15%]">Time Logged</th>
               </tr>
             </thead>
 
@@ -156,21 +146,21 @@ const DailyLogsModal = ({ session }) => {
                   return (
                     <tr
                       key={i}
-                      className="hover:bg-[#F5F3F0]/50 transition-colors duration-150 whitespace-nowrap"
+                      className="hover:bg-[#F5F3F0]/60 transition-colors duration-150 whitespace-nowrap"
                     >
-                      <td className="px-6 py-4 font-mono text-gray-500 text-xs tracking-tight">{s.student_id}</td>
-                      <td className="px-6 py-4 font-semibold text-gray-700 pr-4">{`${s.first_name} ${s.last_name}`}</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                      <td className="px-8 py-3.5 font-mono text-gray-500 font-medium text-xs tracking-wide">{s.student_id}</td>
+                      <td className="px-8 py-3.5 font-bold text-gray-700 pr-6">{`${s.first_name} ${s.last_name}`}</td>
+                      <td className="px-8 py-3.5 text-center">
+                        <span className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold border ${badge.bg} ${badge.text} ${badge.border}`}>
+                          <span className={`w-2 h-2 rounded-full ${badge.dot}`} />
                           {s.status || "—"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-medium text-gray-600">
+                      <td className="px-8 py-3.5 text-right font-semibold text-gray-600">
                         {s.status === "Absent" || !s.time ? (
-                          <span className="text-gray-300">—</span>
+                          <span className="text-gray-300 font-normal">—</span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 justify-end">
+                          <span className="inline-flex items-center gap-1.5 justify-end">
                             <FaClock className="text-gray-400 text-xs" />
                             {formatTime(s.time)}
                           </span>
@@ -181,7 +171,7 @@ const DailyLogsModal = ({ session }) => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="4" className="text-center py-10 text-gray-400 italic">
+                  <td colSpan="4" className="text-center py-10 text-gray-400 italic font-medium">
                     No attendance records logged for this session.
                   </td>
                 </tr>
@@ -191,31 +181,31 @@ const DailyLogsModal = ({ session }) => {
         </div>
       </div>
 
-      {/* Mobile Cards Container with Fixed Max-Height Scroll */}
-      <div className="md:hidden max-h-[400px] overflow-y-auto pr-1 space-y-3 custom-modal-scrollbar">
+      {/* Mobile Cards Container - Max-height adjusted */}
+      <div className="md:hidden max-h-[320px] overflow-y-auto pr-1 space-y-4 custom-modal-scrollbar">
         {students.length > 0 ? (
           students.map((s, i) => {
             const badge = getStatusStyles(s.status);
             return (
               <div
                 key={i}
-                className="p-4 rounded-xl bg-white border border-gray-200 shadow-sm flex flex-col gap-2"
+                className="p-4 rounded-2xl bg-white border border-gray-200/80 shadow-sm flex flex-col gap-3"
               >
-                <div className="flex justify-between items-start gap-2">
+                <div className="flex justify-between items-start gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-gray-800 text-base break-words">{`${s.first_name} ${s.last_name}`}</p>
-                    <p className="text-gray-400 text-xs font-mono mt-0.5 break-all">{s.student_id}</p>
+                    <p className="font-extrabold text-gray-800 text-base tracking-tight break-words">{`${s.first_name} ${s.last_name}`}</p>
+                    <p className="text-gray-400 text-xs font-mono mt-1 break-all tracking-wide">{s.student_id}</p>
                   </div>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}>
                     {s.status || "—"}
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center border-t border-gray-100 pt-2 mt-1 text-xs text-gray-500">
-                  <span>Arrival Time:</span>
-                  <span className="font-semibold text-gray-700 flex items-center gap-1">
+                <div className="flex justify-between items-center border-t border-gray-100 pt-3 mt-1 text-xs text-gray-500">
+                  <span className="font-medium">Arrival Time:</span>
+                  <span className="font-bold text-gray-700 flex items-center gap-1.5">
                     {s.status === "Absent" || !s.time ? (
-                      <span className="text-gray-300">—</span>
+                      <span className="text-gray-300 font-normal">—</span>
                     ) : (
                       <>
                         <FaClock className="text-gray-400" />
@@ -228,13 +218,12 @@ const DailyLogsModal = ({ session }) => {
             );
           })
         ) : (
-          <p className="text-center text-gray-400 italic py-6">
+          <p className="text-center text-gray-400 italic py-8 font-medium">
             No records found.
           </p>
         )}
       </div>
 
-      {/* Scrollbar optimization styles */}
       <style jsx="true">{`
         .custom-modal-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -245,7 +234,7 @@ const DailyLogsModal = ({ session }) => {
           border-radius: 10px;
         }
         .custom-modal-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(10, 58, 35, 0.2);
+          background: rgba(10, 58, 35, 0.15);
           border-radius: 10px;
         }
         .custom-modal-scrollbar::-webkit-scrollbar-thumb:hover {

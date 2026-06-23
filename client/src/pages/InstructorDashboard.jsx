@@ -89,7 +89,7 @@ const InstructorDashboard = () => {
       case "profile":
         return <InstructorProfile setActiveTab={setActiveTab} />;
       case "register-face":
-        return <InstructorRegisterFace />;
+        return <InstructorRegisterFace setActiveTab={setActiveTab} />;
       default:
         return <InstructorOverview />;
     }
@@ -131,7 +131,6 @@ const InstructorDashboard = () => {
           </main>
         </div>
       </div>
-
 
       {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-10">
@@ -206,6 +205,7 @@ const InstructorDashboard = () => {
         </div>
       )}
 
+      {/* Global Toast Container na makakasalo sa lahat ng tabs kabilang ang face registration */}
       <ToastContainer
         position="top-right"
         autoClose={3000}

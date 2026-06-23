@@ -1,6 +1,8 @@
+// src/components/Instructor/InstructorProfile.jsx
 import { useEffect, useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { FaUserCircle, FaIdCard, FaEnvelope, FaUserCheck, FaUserSlash, FaShieldAlt } from "react-icons/fa";
 import { getInstructorProfile } from "../../services/api";
 
 export default function InstructorProfile({ setActiveTab }) {
@@ -10,67 +12,48 @@ export default function InstructorProfile({ setActiveTab }) {
   // ------------------------------------------------
   // RANDOM MASK FUNCTIONS
   // ------------------------------------------------
+  const maskEmail = (email) => {
+    if (!email || !email.includes("@")) return email;
+    const [user, domain] = email.split("@");
+    const chars = user.split("");
+    const revealCount = Math.random() < 0.5 ? 1 : 2;
+    const revealPositions = [];
 
- const maskEmail = (email) => {
-  if (!email || !email.includes("@")) return email;
-
-  const [user, domain] = email.split("@");
-
-  const chars = user.split("");
-
-  // Allow only 1 or 2 random characters to be shown
-  const revealCount = Math.random() < 0.5 ? 1 : 2;
-
-  const revealPositions = [];
-
-  // Choose random indexes to reveal, avoid dots or special chars
-  while (revealPositions.length < revealCount) {
-    const pos = Math.floor(Math.random() * chars.length);
-    if (!revealPositions.includes(pos) && /[A-Za-z0-9]/.test(chars[pos])) {
-      revealPositions.push(pos);
+    while (revealPositions.length < revealCount) {
+      const pos = Math.floor(Math.random() * chars.length);
+      if (!revealPositions.includes(pos) && /[A-Za-z0-9]/.test(chars[pos])) {
+        revealPositions.push(pos);
+      }
     }
-  }
 
-  // Mask all except the random revealed characters
-  const maskedUser = chars
-    .map((ch, i) => (revealPositions.includes(i) ? ch : "*"))
-    .join("");
+    const maskedUser = chars
+      .map((ch, i) => (revealPositions.includes(i) ? ch : "*"))
+      .join("");
 
-  return `${maskedUser}@${domain}`;
-};
+    return `${maskedUser}@${domain}`;
+  };
 
-
-  // ⭐ Mask instructor ID → Keep last 4 digits, random stars for the rest
   const maskInstructorId = (id) => {
-  if (!id) return "";
-
-  const chars = id.split("");
-
-  // Show 1 or 2 random characters only
-  const revealCount = Math.random() < 0.5 ? 1 : 2;
-
-  // Choose random unique positions to reveal
-  const revealPositions = [];
-  while (revealPositions.length < revealCount) {
-    const pos = Math.floor(Math.random() * chars.length);
-    if (!revealPositions.includes(pos) && chars[pos] !== "-") {
-      revealPositions.push(pos);
+    if (!id) return "";
+    const chars = id.split("");
+    const revealCount = Math.random() < 0.5 ? 1 : 2;
+    const revealPositions = [];
+    
+    while (revealPositions.length < revealCount) {
+      const pos = Math.floor(Math.random() * chars.length);
+      if (!revealPositions.includes(pos) && chars[pos] !== "-") {
+        revealPositions.push(pos);
+      }
     }
-  }
 
-  // Build masked string
-  return chars
-    .map((ch, i) => {
-      if (ch === "-") return "-"; // keep dash visible
-      return revealPositions.includes(i) ? ch : "*";
-    })
-    .join("");
-};
+    return chars
+      .map((ch, i) => {
+        if (ch === "-") return "-";
+        return revealPositions.includes(i) ? ch : "*";
+      })
+      .join("");
+  };
 
-
-  // ------------------------------------------------
-  // LOAD PROFILE
-  // ------------------------------------------------
   useEffect(() => {
     (async () => {
       try {
@@ -94,83 +77,136 @@ export default function InstructorProfile({ setActiveTab }) {
     })();
   }, []);
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="p-6 flex justify-center items-center">
-        <div className="animate-pulse h-40 rounded-2xl bg-white/5 w-3/4" />
-        <ToastContainer position="top-center" theme="dark" />
+      <div className="space-y-12 px-4 animate-pulse">
+        <div>
+          <div className="h-8 bg-gray-200 rounded-lg w-1/4 mb-2" />
+          <div className="h-3 bg-gray-200 rounded w-1/6" />
+        </div>
+        <div className="h-64 bg-gray-100 rounded-2xl w-full" />
+        <ToastContainer position="top-center" theme="light" />
       </div>
     );
+  }
 
-  if (!prof)
+  if (!prof) {
     return (
-      <div className="p-6 text-red-400 text-center">
-        Unable to load instructor profile.
+      <div className="text-center py-12 border-2 border-[#0A3A23]/10 p-6 max-w-md mx-auto rounded-2xl bg-[#0A3A23]/5">
+        <p className="text-[#0A3A23] font-bold">Cannot load your profile information.</p>
       </div>
     );
+  }
 
   return (
-    <div className="p-6">
-      <div className="rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold text-white">Instructor Profile</h2>
+    <div className="space-y-12 px-4">
+      {/* HEADER SECTION */}
+      <div>
+        <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">
+          Instructor Profile
+        </h2>
+        <p className="text-[11px] text-[#008C45] font-extrabold tracking-widest uppercase mt-1">
+          Your account and face login details
+        </p>
+      </div>
+
+      {/* MAIN PREMIUM PROFILE WORKSPACE */}
+      <div className="border border-gray-200/70 rounded-3xl bg-white shadow-xl shadow-[#0A3A23]/5 overflow-hidden">
+        
+        {/* Top Hero Banner Section */}
+        <div className="bg-gradient-to-r from-[#0A3A23]/5 via-[#F5F3F0] to-transparent p-8 border-b border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+            <div className="p-1 bg-white rounded-full shadow-md border border-gray-100">
+              <FaUserCircle className="text-6xl text-[#0A3A23]" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-gray-800 tracking-tight">{prof.name}</h3>
+              <p className="text-xs font-bold text-[#008C45] uppercase tracking-wider mt-0.5">Instructor Account</p>
+            </div>
+          </div>
 
           <span
-            className={`px-4 py-2 rounded-full text-xs font-medium ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
               prof.face_registered
-                ? "bg-emerald-600/20 text-emerald-300 border border-emerald-600/30"
-                : "bg-yellow-600/20 text-yellow-300 border border-yellow-600/30"
+                ? "bg-[#008C45]/10 text-[#008C45] border-[#008C45]/30 shadow-sm"
+                : "bg-[#950606]/10 text-[#950606] border-[#950606]/20 shadow-sm"
             }`}
           >
-            {prof.face_registered ? "Face Registered" : "Face Not Registered"}
+            {prof.face_registered ? (
+              <>
+                <FaUserCheck className="text-sm" />
+                Face Registered
+              </>
+            ) : (
+              <>
+                <FaUserSlash className="text-sm" />
+                Face Not Registered
+              </>
+            )}
           </span>
         </div>
 
-        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Instructor ID */}
-          <div className="rounded-xl bg-white/5 p-6">
-            <div className="text-white/60 text-sm">Instructor ID</div>
-            <div className="text-lg text-white font-medium">
-              {maskInstructorId(prof.instructor_id)}
+        {/* Info Split Panel System */}
+        <div className="p-8 grid md:grid-cols-5 gap-8">
+          
+          {/* Left Column: Essential Account Specs (3/5 width) */}
+          <div className="md:col-span-3 space-y-5">
+            <h4 className="text-xs font-extrabold uppercase tracking-widest text-[#0A3A23]/60 mb-2">Profile Information</h4>
+            
+            {/* Field Row: Instructor ID */}
+            <div className="flex items-center justify-between p-4 bg-[#F5F3F0]/60 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-3">
+                <FaIdCard className="text-[#0A3A23]/50 text-base" />
+                <span className="text-sm font-bold text-gray-500">Instructor ID</span>
+              </div>
+              <span className="text-sm font-mono font-bold text-gray-800 tracking-wide bg-white px-3 py-1 rounded-md border border-gray-200/60">
+                {maskInstructorId(prof.instructor_id)}
+              </span>
+            </div>
+
+            {/* Field Row: Email */}
+            <div className="flex items-center justify-between p-4 bg-[#F5F3F0]/60 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-3">
+                <FaEnvelope className="text-[#0A3A23]/50 text-base" />
+                <span className="text-sm font-bold text-gray-500">Email Address</span>
+              </div>
+              <span className="text-sm font-semibold text-gray-700 bg-white px-3 py-1 rounded-md border border-gray-200/60">
+                {maskEmail(prof.email)}
+              </span>
             </div>
           </div>
 
-          {/* Name */}
-          <div className="rounded-xl bg-white/5 p-6">
-            <div className="text-white/60 text-sm">Name</div>
-            <div className="text-lg text-white font-medium">{prof.name}</div>
-          </div>
-
-          {/* Email */}
-          <div className="rounded-xl bg-white/5 p-6">
-            <div className="text-white/60 text-sm">Email</div>
-            <div className="text-lg text-white font-medium">
-              {maskEmail(prof.email)}
+          {/* Right Column: Dynamic Security Actions Panel (2/5 width) */}
+          <div className="md:col-span-2 p-6 rounded-2xl bg-[#0A3A23]/5 border border-[#0A3A23]/10 flex flex-col justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-[#0A3A23] font-bold text-sm mb-2">
+                <FaShieldAlt className="text-base text-[#008C45]" />
+                Face Login Status
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {prof.face_registered 
+                  ? "Your face photo is saved. You can scan your face again if you have trouble logging in."
+                  : "Your face photo is not saved yet. Please register your face below to use face login."
+                }
+              </p>
             </div>
-          </div>
-        </div>
 
-        {/* Register/Re-register Face */}
-        <div className="mt-8 text-center">
-          {!prof.face_registered ? (
             <button
-              className="px-6 py-3 rounded-xl bg-emerald-600 text-white text-lg font-semibold hover:bg-emerald-500 transition-all duration-300"
               onClick={() => setActiveTab("register-face")}
+              className={`w-full px-5 py-3 rounded-xl font-bold tracking-wide text-xs uppercase shadow-sm transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] text-white ${
+                !prof.face_registered
+                  ? "bg-[#008C45] hover:bg-[#0A3A23] shadow-[#008C45]/10"
+                  : "bg-[#0A3A23] hover:bg-[#008C45] shadow-[#0A3A23]/10"
+              }`}
             >
-              Register Face
+              {!prof.face_registered ? "Register Face Now" : "Register Face Again"}
             </button>
-          ) : (
-            <button
-              className="px-6 py-3 rounded-xl bg-gray-700 text-white text-lg font-semibold hover:bg-gray-600 transition-all duration-300"
-              onClick={() => setActiveTab("register-face")}
-            >
-              Re-register Face
-            </button>
-          )}
+          </div>
+
         </div>
       </div>
 
-      <ToastContainer position="top-center" theme="dark" />
+      <ToastContainer position="top-center" theme="light" />
     </div>
   );
 }
