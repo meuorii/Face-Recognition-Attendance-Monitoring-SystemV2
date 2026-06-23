@@ -281,9 +281,9 @@ const AttendanceReports = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={handleOpenFilterModal}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#F5F3F0] text-[#0A3A23] border border-[#0A3A23]/5 font-black text-xs uppercase tracking-wider hover:bg-[#0A3A23]/5 transition-all shadow-sm"
+            className="flex items-center gap-2 px-3 py-3 rounded-2xl bg-[#F5F3F0] text-[#0A3A23] border border-[#0A3A23]/5 font-black text-xs uppercase tracking-wider hover:bg-[#0A3A23]/5 transition-all shadow-sm"
           >
-            <SlidersHorizontal size={14} strokeWidth={2.5} /> Filters
+            <SlidersHorizontal size={14} strokeWidth={2.5} /> 
           </button>
 
           {filteredSessions.length > 0 && (
@@ -299,45 +299,133 @@ const AttendanceReports = () => {
 
       {/* FILTER ACTIVE CARDS / BADGES */}
       {hasActiveFilters && (
-        <div className="bg-[#F5F3F0]/50 border border-[#0A3A23]/5 p-5 rounded-[24px] space-y-3">
-          <p className="text-[10px] font-black tracking-widest text-[#0A3A23]/40 uppercase">Active Filter Summary</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="bg-white border border-[#0A3A23]/10 p-6 rounded-[24px] shadow-[0_16px_40px_rgba(10,58,35,0.03)] space-y-4">
+          
+          {/* Header Action Section ng Active Filters */}
+          <div className="flex items-center justify-between border-b border-[#0A3A23]/5 pb-3">
+            <p className="text-[10px] font-black tracking-widest text-[#0A3A23]/40 uppercase">
+              Active Filter Summary
+            </p>
+            <button 
+              onClick={() => {
+                setSelectedCourse("");
+                setSelectedClass("");
+                setSelectedSemester("");
+                setSelectedSchoolYear("");
+                setSelectedMonth("");
+                setWeekStart(null);
+              }}
+              className="text-[10px] font-black uppercase text-red-600 tracking-wider hover:underline transition-all"
+            >
+              Clear All
+            </button>
+          </div>
+          
+          {/* Premium Filter Badges Container */}
+          <div className="flex flex-wrap gap-3">
+            
+            {/* Course Premium Badge */}
             {selectedCourse && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
-                <Layers size={12} className="text-[#008C45]" /> {selectedCourse}
-                <X size={12} className="cursor-pointer text-red-500 ml-1" onClick={() => setSelectedCourse("")} />
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F5F3F0] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
+                <Layers size={13} className="text-[#008C45]" strokeWidth={2.5} />
+                <div className="flex flex-col text-left leading-tight ml-0.5">
+                  <span className="text-[9px] font-black text-[#0A3A23]/40 uppercase tracking-wider">Course</span>
+                  <span className="text-[#0A3A23] font-extrabold mt-0.5">{selectedCourse}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedCourse("")}
+                  className="p-1 rounded-md hover:bg-red-50 text-[#0A3A23]/30 hover:text-red-500 transition-all ml-2"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
               </span>
             )}
+            
+            {/* Class Premium Badge */}
             {selectedClass && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
-                <Layers size={12} className="text-[#008C45]" /> {getSelectedClassLabel()}
-                <X size={12} className="cursor-pointer text-red-500 ml-1" onClick={() => setSelectedClass("")} />
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F5F3F0] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
+                <Layers size={13} className="text-[#008C45]" strokeWidth={2.5} />
+                <div className="flex flex-col text-left leading-tight ml-0.5">
+                  <span className="text-[9px] font-black text-[#0A3A23]/40 uppercase tracking-wider">Class</span>
+                  <span className="text-[#0A3A23] font-extrabold mt-0.5">{getSelectedClassLabel()}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedClass("")}
+                  className="p-1 rounded-md hover:bg-red-50 text-[#0A3A23]/30 hover:text-red-500 transition-all ml-2"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
               </span>
             )}
+            
+            {/* Semester Premium Badge */}
             {selectedSemester && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
-                <GraduationCap size={12} className="text-[#008C45]" /> {semesterMap[selectedSemester]}
-                <X size={12} className="cursor-pointer text-red-500 ml-1" onClick={() => setSelectedSemester("")} />
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F5F3F0] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
+                <GraduationCap size={14} className="text-[#008C45]" strokeWidth={2.5} />
+                <div className="flex flex-col text-left leading-tight ml-0.5">
+                  <span className="text-[9px] font-black text-[#0A3A23]/40 uppercase tracking-wider">Term</span>
+                  <span className="text-[#0A3A23] font-extrabold mt-0.5">{semesterMap[selectedSemester] || selectedSemester}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedSemester("")}
+                  className="p-1 rounded-md hover:bg-red-50 text-[#0A3A23]/30 hover:text-red-500 transition-all ml-2"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
               </span>
             )}
+            
+            {/* School Year Premium Badge */}
             {selectedSchoolYear && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
-                <Calendar size={12} className="text-[#008C45]" /> {selectedSchoolYear}
-                <X size={12} className="cursor-pointer text-red-500 ml-1" onClick={() => setSelectedSchoolYear("")} />
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F5F3F0] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
+                <Calendar size={13} className="text-[#008C45]" strokeWidth={2.5} />
+                <div className="flex flex-col text-left leading-tight ml-0.5">
+                  <span className="text-[9px] font-black text-[#0A3A23]/40 uppercase tracking-wider">School Year</span>
+                  <span className="text-[#0A3A23] font-extrabold mt-0.5">{selectedSchoolYear}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedSchoolYear("")}
+                  className="p-1 rounded-md hover:bg-red-50 text-[#0A3A23]/30 hover:text-red-500 transition-all ml-2"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
               </span>
             )}
+            
+            {/* Month Premium Badge */}
             {selectedMonth && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
-                <Calendar size={12} className="text-[#008C45]" /> {monthNames[selectedMonth - 1]}
-                <X size={12} className="cursor-pointer text-red-500 ml-1" onClick={() => setSelectedMonth("")} />
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F5F3F0] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
+                <Calendar size={13} className="text-[#008C45]" strokeWidth={2.5} />
+                <div className="flex flex-col text-left leading-tight ml-0.5">
+                  <span className="text-[9px] font-black text-[#0A3A23]/40 uppercase tracking-wider">Month</span>
+                  <span className="text-[#0A3A23] font-extrabold mt-0.5">{monthNames[selectedMonth - 1]}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedMonth("")}
+                  className="p-1 rounded-md hover:bg-red-50 text-[#0A3A23]/30 hover:text-red-500 transition-all ml-2"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
               </span>
             )}
+            
+            {/* Week Premium Badge */}
             {weekStart && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
-                <Calendar size={12} className="text-[#008C45]" /> Wk: {weekStart.toISOString().split("T")[0]}
-                <X size={12} className="cursor-pointer text-red-500 ml-1" onClick={() => setWeekStart(null)} />
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F5F3F0] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]">
+                <Calendar size={13} className="text-[#008C45]" strokeWidth={2.5} />
+                <div className="flex flex-col text-left leading-tight ml-0.5">
+                  <span className="text-[9px] font-black text-[#0A3A23]/40 uppercase tracking-wider">Week</span>
+                  <span className="text-[#0A3A23] font-extrabold mt-0.5">{weekStart.toISOString().split("T")[0]}</span>
+                </div>
+                <button
+                  onClick={() => setWeekStart(null)}
+                  className="p-1 rounded-md hover:bg-red-50 text-[#0A3A23]/30 hover:text-red-500 transition-all ml-2"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
               </span>
             )}
+            
           </div>
         </div>
       )}

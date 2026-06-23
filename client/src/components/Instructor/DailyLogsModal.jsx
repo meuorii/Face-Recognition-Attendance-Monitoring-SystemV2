@@ -1,5 +1,5 @@
 // src/components/Instructor/DailyLogsModal.jsx
-import { FaCalendarAlt, FaFilePdf } from "react-icons/fa";
+import { FaCalendarAlt, FaFilePdf, FaClock } from "react-icons/fa";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -30,95 +30,90 @@ const DailyLogsModal = ({ session }) => {
     });
   };
 
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case "Present":
+        return { text: "text-[#008C45]", bg: "bg-[#008C45]/10", border: "border-[#008C45]/30", dot: "bg-[#008C45]" };
+      case "Late":
+        return { text: "text-[#A18100]", bg: "bg-[#FDCC0D]/15", border: "border-[#FDCC0D]/40", dot: "bg-[#FDCC0D]" };
+      case "Absent":
+        return { text: "text-[#950606]", bg: "bg-[#950606]/10", border: "border-[#950606]/20", dot: "bg-[#950606]" };
+      default:
+        return { text: "text-gray-500", bg: "bg-gray-100", border: "border-gray-200", dot: "bg-gray-400" };
+    }
+  };
+
   // ==============================
   // EXPORT PDF (PER SESSION)
   // ==============================
   const exportToPDF = () => {
-  const doc = new jsPDF("p", "mm", "a4");
-  const pageWidth = doc.internal.pageSize.getWidth();
+    const doc = new jsPDF("p", "mm", "a4");
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Logos
-  doc.addImage("/ccit-logo.png", "PNG", 10, 10, 25, 25);
-  doc.addImage("/prmsu.png", "PNG", pageWidth - 35, 10, 25, 25);
+    // Logos
+    doc.addImage("/ccit-logo.png", "PNG", 10, 10, 25, 25);
+    doc.addImage("/prmsu.png", "PNG", pageWidth - 35, 10, 25, 25);
 
-  // University Header
-  doc.setFont("times", "bold");
-  doc.setFontSize(14);
-  doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
-  doc.text(
-    "PRESIDENT RAMON MAGSAYSAY STATE UNIVERSITY",
-    pageWidth / 2,
-    25,
-    { align: "center" }
-  );
+    // University Header
+    doc.setFont("times", "bold");
+    doc.setFontSize(14);
+    doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
+    doc.text("PRESIDENT RAMON MAGSAYSAY STATE UNIVERSITY", pageWidth / 2, 25, { align: "center" });
 
-  doc.setFont("times", "italic");
-  doc.setFontSize(11);
-  doc.text(
-    "(Ramon Magsaysay Technological University)",
-    pageWidth / 2,
-    32,
-    { align: "center" }
-  );
-  doc.text("Iba, Zambales", pageWidth / 2, 38, { align: "center" });
+    doc.setFont("times", "italic");
+    doc.setFontSize(11);
+    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, { align: "center" });
+    doc.text("Iba, Zambales", pageWidth / 2, 38, { align: "center" });
 
-  doc.setFont("times", "bold");
-  doc.setFontSize(12);
-  doc.text(
-    "COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY",
-    pageWidth / 2,
-    45,
-    { align: "center" }
-  );
+    doc.setFont("times", "bold");
+    doc.setFontSize(12);
+    doc.text("COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY", pageWidth / 2, 45, { align: "center" });
 
-  // Title
-  doc.setFontSize(14);
-  doc.setTextColor(34, 197, 94);
-  doc.text("DAILY ATTENDANCE REPORT", pageWidth / 2, 55, { align: "center" });
+    // Title
+    doc.setFontSize(14);
+    doc.setTextColor(10, 58, 35); // #0A3A23
+    doc.text("DAILY ATTENDANCE REPORT", pageWidth / 2, 55, { align: "center" });
 
-  // Reset color for text
-  doc.setTextColor(0, 0, 0);
+    // Reset color for text
+    doc.setTextColor(0, 0, 0);
 
-  // Session Info
-  doc.setFontSize(12);
+    // Session Info
+    doc.setFontSize(12);
+    doc.text(`Date: ${formatDate(session.date)}`, 20, 65);
+    doc.text(`Subject: ${session.subject_code} – ${session.subject_title}`, 20, 72);
+    doc.text(`Class Section: ${session.section}`, 20, 79);
+    doc.text(`Semester: ${session.semester || "N/A"}`, 20, 86);
+    doc.text(`School Year: ${session.school_year || "N/A"}`, 20, 93);
 
-  doc.text(`Date: ${formatDate(session.date)}`, 20, 65);
-  doc.text(`Subject: ${session.subject_code} – ${session.subject_title}`, 20, 72);
-  doc.text(`Class Section: ${session.section}`, 20, 79);
+    // Table
+    autoTable(doc, {
+      startY: 105,
+      head: [["Student ID", "Name", "Status", "Time"]],
+      body: students.map((s) => [
+        s.student_id,
+        `${s.first_name} ${s.last_name}`,
+        s.status || "—",
+        s.status === "Absent" || !s.time ? "—" : formatTime(s.time),
+      ]),
+      headStyles: { fillColor: [10, 58, 35], textColor: 255 }, // #0A3A23
+      styles: { fontSize: 11, halign: "center" },
+    });
 
-  // ✅ NEW FIELDS
-  doc.text(`Semester: ${session.semester || "N/A"}`, 20, 86);
-  doc.text(`School Year: ${session.school_year || "N/A"}`, 20, 93);
-
-  // Table
-  autoTable(doc, {
-    startY: 105,
-    head: [["Student ID", "Name", "Status", "Time"]],
-    body: students.map((s) => [
-      s.student_id,
-      `${s.first_name} ${s.last_name}`,
-      s.status || "—",
-      s.status === "Absent" || !s.time ? "—" : formatTime(s.time),
-    ]),
-    headStyles: { fillColor: [34, 197, 94], textColor: 255 },
-    styles: { fontSize: 11, halign: "center" },
-  });
-
-  doc.save(`attendance_${session.date}.pdf`);
-};
+    doc.save(`attendance_${session.date}.pdf`);
+  };
 
   return (
-    <div className="w-full">
-      {/* Header */}
-      <div className="mb-5 border-b border-white/10 pb-3 flex justify-between items-center">
+    <div className="w-full max-w-4xl mx-auto bg-white text-gray-800">
+      {/* Header Panel */}
+      <div className="mb-5 border-b border-gray-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
-            <FaCalendarAlt className="text-emerald-300" />
+          <h2 className="text-2xl font-bold flex items-center gap-2 text-[#0A3A23] tracking-tight">
+            <FaCalendarAlt className="text-[#008C45]" />
             Daily Attendance Logs
           </h2>
-          <p className="text-gray-300 mt-1">
+          <p className="text-gray-500 text-sm mt-1">
             Session Date:{" "}
-            <span className="text-emerald-400 font-semibold">
+            <span className="text-[#0A3A23] font-semibold bg-[#008C45]/10 px-2 py-0.5 rounded border border-[#008C45]/20">
               {formatDate(session.date)}
             </span>
           </p>
@@ -126,102 +121,137 @@ const DailyLogsModal = ({ session }) => {
 
         <button
           onClick={exportToPDF}
-          className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold shadow hover:scale-105 transition"
+          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0A3A23] hover:bg-[#008C45] text-white font-medium shadow-md transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap"
         >
-          <FaFilePdf className="inline mr-2" />
-          Export PDF
+          <FaFilePdf className="text-base" />
+          Export Report
         </button>
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block border border-white/10 rounded-xl overflow-hidden">
-        <table className="min-w-full text-sm text-left text-gray-300">
-          <thead className="bg-neutral-800 text-emerald-300">
-            <tr>
-              <th className="px-6 py-3">Student ID</th>
-              <th className="px-6 py-3">Name</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3">Time</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {students.length > 0 ? (
-              students.map((s, i) => (
-                <tr
-                  key={i}
-                  className={`${
-                    i % 2 ? "bg-neutral-900/50" : "bg-neutral-800/50"
-                  } border-b border-white/10`}
-                >
-                  <td className="px-6 py-3">{s.student_id}</td>
-                  <td className="px-6 py-3">{`${s.first_name} ${s.last_name}`}</td>
-                  <td
-                    className={`px-6 py-3 ${
-                      s.status === "Present"
-                        ? "text-emerald-400"
-                        : s.status === "Absent"
-                        ? "text-red-400"
-                        : "text-yellow-400"
-                    }`}
-                  >
-                    {s.status}
-                  </td>
-                  <td className="px-6 py-3">
-                    {s.status === "Absent" || !s.time ? "—" : formatTime(s.time)}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" className="text-center py-6 text-gray-500 italic">
-                  No attendance records for this session.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      {/* Meta Specs Ribbon */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 p-4 rounded-xl bg-[#F5F3F0] border border-gray-200 text-sm">
+        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">Subject</span><span className="font-semibold text-[#0A3A23] whitespace-nowrap">{session.subject_code}</span></div>
+        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">Section</span><span className="font-semibold text-[#0A3A23]">{session.section}</span></div>
+        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">Semester</span><span className="font-semibold text-[#0A3A23] whitespace-nowrap">{session.semester || "N/A"}</span></div>
+        <div><span className="text-gray-500 block text-xs font-medium uppercase tracking-wider mb-0.5">S.Y.</span><span className="font-semibold text-[#0A3A23] whitespace-nowrap">{session.school_year || "N/A"}</span></div>
       </div>
 
-      {/* Mobile Cards */}
-      <div className="md:hidden space-y-4">
+      {/* Desktop Table Container with Fixed Max-Height Scroll & Horizontal Scroll Protection */}
+      <div className="hidden md:block border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <div className="max-h-[400px] overflow-y-auto overflow-x-auto custom-modal-scrollbar">
+          <table className="min-w-full text-sm text-left border-collapse table-auto">
+            <thead className="bg-[#0A3A23] text-white sticky top-0 z-10">
+              <tr className="whitespace-nowrap">
+                <th className="px-6 py-3.5 font-semibold tracking-wide w-[25%]">Student ID</th>
+                <th className="px-6 py-3.5 font-semibold tracking-wide w-[45%]">Name</th>
+                <th className="px-6 py-3.5 font-semibold tracking-wide text-center w-[15%]">Status</th>
+                <th className="px-6 py-3.5 font-semibold tracking-wide text-right w-[15%]">Time Logged</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-100">
+              {students.length > 0 ? (
+                students.map((s, i) => {
+                  const badge = getStatusStyles(s.status);
+                  return (
+                    <tr
+                      key={i}
+                      className="hover:bg-[#F5F3F0]/50 transition-colors duration-150 whitespace-nowrap"
+                    >
+                      <td className="px-6 py-4 font-mono text-gray-500 text-xs tracking-tight">{s.student_id}</td>
+                      <td className="px-6 py-4 font-semibold text-gray-700 pr-4">{`${s.first_name} ${s.last_name}`}</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                          {s.status || "—"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-medium text-gray-600">
+                        {s.status === "Absent" || !s.time ? (
+                          <span className="text-gray-300">—</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 justify-end">
+                            <FaClock className="text-gray-400 text-xs" />
+                            {formatTime(s.time)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="4" className="text-center py-10 text-gray-400 italic">
+                    No attendance records logged for this session.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile Cards Container with Fixed Max-Height Scroll */}
+      <div className="md:hidden max-h-[400px] overflow-y-auto pr-1 space-y-3 custom-modal-scrollbar">
         {students.length > 0 ? (
-          students.map((s, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl bg-neutral-900/60 border border-white/10 shadow-lg"
-            >
-              <p className="text-gray-400 text-sm">Student ID:</p>
-              <p className="font-semibold text-white mb-2">{s.student_id}</p>
-
-              <p className="text-gray-400 text-sm">Name:</p>
-              <p className="font-semibold text-emerald-300 mb-2">{`${s.first_name} ${s.last_name}`}</p>
-
-              <p className="text-gray-400 text-sm">Status:</p>
-              <p
-                className={`font-semibold ${
-                  s.status === "Present"
-                    ? "text-emerald-400"
-                    : s.status === "Absent"
-                    ? "text-red-400"
-                    : "text-yellow-400"
-                }`}
+          students.map((s, i) => {
+            const badge = getStatusStyles(s.status);
+            return (
+              <div
+                key={i}
+                className="p-4 rounded-xl bg-white border border-gray-200 shadow-sm flex flex-col gap-2"
               >
-                {s.status}
-              </p>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-800 text-base break-words">{`${s.first_name} ${s.last_name}`}</p>
+                    <p className="text-gray-400 text-xs font-mono mt-0.5 break-all">{s.student_id}</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}>
+                    {s.status || "—"}
+                  </span>
+                </div>
 
-              <p className="text-gray-400 text-sm mt-2">Time:</p>
-              <p className="font-semibold text-white">
-                {s.status === "Absent" || !s.time ? "—" : formatTime(s.time)}
-              </p>
-            </div>
-          ))
+                <div className="flex justify-between items-center border-t border-gray-100 pt-2 mt-1 text-xs text-gray-500">
+                  <span>Arrival Time:</span>
+                  <span className="font-semibold text-gray-700 flex items-center gap-1">
+                    {s.status === "Absent" || !s.time ? (
+                      <span className="text-gray-300">—</span>
+                    ) : (
+                      <>
+                        <FaClock className="text-gray-400" />
+                        {formatTime(s.time)}
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+            );
+          })
         ) : (
-          <p className="text-center text-gray-500 italic">
+          <p className="text-center text-gray-400 italic py-6">
             No records found.
           </p>
         )}
       </div>
+
+      {/* Scrollbar optimization styles */}
+      <style jsx="true">{`
+        .custom-modal-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        .custom-modal-scrollbar::-webkit-scrollbar-track {
+          background: #F5F3F0;
+          border-radius: 10px;
+        }
+        .custom-modal-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(10, 58, 35, 0.2);
+          border-radius: 10px;
+        }
+        .custom-modal-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #008C45;
+        }
+      `}</style>
     </div>
   );
 };
