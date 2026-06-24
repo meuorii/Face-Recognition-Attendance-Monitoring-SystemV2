@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from pymongo import ReturnDocument
+import base64
 import numpy as np
 import requests
 import time
@@ -311,40 +312,36 @@ def multi_face_recognize():
     start_time = time.time()
 
     try:
-        data = request.get_json(silent=True) or {}
-        faces = data.get("faces") or []
-        class_id = str(data.get("class_id") or "").strip()
+        faces = []
+        class_id = ""
 
+        # Check if the request is multipart/form-data (e.g., File uploads from Postman)
+        if request.files or request.form:
+            class_id = str(request.form.get("class_id") or "").strip()
+            
+            # Handle possible key syntax varieties: 'faces' or 'faces[]'
+            uploaded_files = request.files.getlist("faces") or request.files.getlist("faces[]")
+            
+            for file in uploaded_files:
+                if file and file.filename != "":
+                    # Read binary image stream directly out of system RAM buffers
+                    file_bytes = file.read()
+                    b64_string = base64.b64encode(file_bytes).decode("utf-8")
+                    
+                    # Synthesize frontend data URL structure matching your AI microservice expectations
+                    mime_type = file.mimetype or "image/jpeg"
+                    faces.append(f"data:{mime_type};base64,{b64_string}")
+        else:
+            # Fallback to default application/json handling (e.g., Live session client stream)
+            data = request.get_json(silent=True) or {}
+            faces = data.get("faces") or []
+            class_id = str(data.get("class_id") or "").strip()
+
+        # Parameter sanity check verification validation
         if not faces or not class_id:
             return jsonify({"error": "Missing faces or class_id"}), 400
 
-        # Fix 1 — cached, no DB hit if fresh
-        registered_faces = get_cached_faces(class_id)
-        if not registered_faces:
-            return jsonify({
-                "success": False,
-                "message": "No registered faces for this class",
-                "recognized": [],
-                "instructor_detected": False
-            }), 200
-
-        payload = {"faces": faces, "registered_faces": registered_faces}
-
-        try:
-            hf_res = requests.post(
-                f"{HF_AI_URL}/recognize-multi",
-                json=payload,
-                timeout=60
-            )
-            if hf_res.status_code != 200:
-                return jsonify({"error": "AI service failed"}), 500
-            hf_result = hf_res.json()
-        except Exception:
-            return jsonify({"error": "AI service unreachable"}), 500
-
-        recognized = hf_result.get("recognized") or []
-
-        # Fix 3 — use cached class doc
+        # 1. Kuhanin ang Cached Class Document para sa verification parameters
         cls = get_cached_class(class_id)
         if not cls:
             return jsonify({"error": "Class not found"}), 404
@@ -360,8 +357,62 @@ def multi_face_recognize():
         except Exception:
             return jsonify({"error": "Invalid log id"}), 500
 
-        att_log = attendance_collection.find_one({"_id": log_id})
+        # 2. Kuhanin ang mga rehistradong mukha para sa klase na ito
+        registered_faces = get_cached_faces(class_id)
+        if not registered_faces:
+            return jsonify({
+                "success": False,
+                "message": "No registered faces for this class",
+                "recognized": [],
+                "instructor_detected": False
+            }), 200
 
+        # 3. I-prepare ang Local Target Matrix (NumPy Vectorization Setup)
+        embeddings_list = []
+        user_meta = []
+
+        for r in registered_faces:
+            emb = np.array(r.get("embedding"), dtype=np.float32)
+            if emb.shape != (512,):
+                continue
+            norm = np.linalg.norm(emb)
+            if norm < 1e-3:
+                continue
+            embeddings_list.append(emb / norm)
+            user_meta.append({
+                "user_id": r.get("user_id"),
+                "type": "instructor" if str(r.get("user_id")) == str(instructor_id) else r.get("type", "student")
+            })
+
+        # Kung walang maayos na reference embedding sa DB, huwag nang magpatuloy
+        if not embeddings_list:
+            return jsonify({
+                "success": True,
+                "logged": [],
+                "count": 0,
+                "instructor_detected": False
+            }), 200
+
+        reg_embs = np.stack(embeddings_list, axis=0)
+
+        # 4. Tumawag sa AI Microservice para sa Pure Feature Extraction & Anti-Spoofing
+        try:
+            # Pinapadala lang ang array ng base64 crops, walang dalang sensitibong DB records
+            hf_res = requests.post(
+                f"{HF_AI_URL}/extract-features",
+                json={"faces": faces},
+                timeout=30
+            )
+            if hf_res.status_code != 200:
+                return jsonify({"error": "AI service feature extraction failed"}), 500
+            ai_result = hf_res.json()
+        except Exception:
+            return jsonify({"error": "AI service unreachable"}), 500
+
+        features = ai_result.get("features") or []
+
+        # 5. I-verify o Hanapin ang Attendance Log Document
+        att_log = attendance_collection.find_one({"_id": log_id})
         if not att_log:
             now = datetime.now(PH_TZ)
             new_log = {
@@ -382,7 +433,7 @@ def multi_face_recognize():
                 "year_level": cls.get("year_level"),
             }
             try:
-                inserted = attendance_collection.insert_one(new_log)  # Fix 5
+                inserted = attendance_collection.insert_one(new_log)
                 new_log_id = str(inserted.inserted_id)
             except Exception:
                 att_log = attendance_collection.find_one({"_id": log_id})
@@ -401,6 +452,7 @@ def multi_face_recognize():
                 att_log = new_log
                 log_id = ObjectId(new_log_id)
 
+        # 6. Set up state variables at timestamps
         now = datetime.now(PH_TZ)
         now_time = now.strftime("%H:%M:%S")
         now_readable = now.strftime("%I:%M %p")
@@ -417,38 +469,47 @@ def multi_face_recognize():
 
         instructor_detected = SESSION_INSTRUCTOR_DETECTED[class_id]["detected"]
         results = []
+        seen_user_ids = set()
 
-        if not recognized:
-            return jsonify({
-                "success": True,
-                "logged": [],
-                "count": 0,
-                "instructor_detected": instructor_detected,
-                "instructor_id": instructor_id,
-                "instructor_first_name": cls.get("instructor_first_name"),
-                "instructor_last_name": cls.get("instructor_last_name"),
-                "subject_code": cls.get("subject_code"),
-                "subject_title": cls.get("subject_title"),
-            }), 200
+        # 7. PROCESO NG LOCAL COSINE MATCHING AT BUSINESS LOGIC LOOP
+        for f_data in features:
+            spoof_status = f_data.get("spoof_status")
+            spoof_confidence = f_data.get("spoof_confidence")
+            real_prob = f_data.get("real_prob")
+            spoof_prob = f_data.get("spoof_prob")
+            raw_emb = f_data.get("embedding")
 
-        for face in recognized:
-            user_id = str(face.get("user_id") or "")
-            if not user_id:
+            # Kung ang mukha ay na-intercept bilang Spoof, itapon na agad
+            if spoof_status == "Spoof":
                 continue
 
-            # Fix 4 — derive is_instructor from "type" field
-            is_instructor = face.get("type") == "instructor" or face.get("is_instructor", False)
-            bbox = face.get("bbox")
-            match_score = face.get("match_score")
-            spoof_status = face.get("spoof_status")
-            spoof_confidence = face.get("spoof_confidence")
-            real_prob = face.get("real_prob")
-            spoof_prob = face.get("spoof_prob")
+            if not raw_emb:
+                continue
 
-            if is_instructor or user_id == instructor_id:
-                if spoof_status == "Spoof" or (spoof_confidence is not None and spoof_confidence < 0.70):
-                    print(f"Instructor SPOOF BLOCKED: {instructor_id} | confidence={spoof_confidence}")
-                    continue
+            # I-convert ang embedding mula sa AI Microservice patungong NumPy array
+            emb = np.array(raw_emb, dtype=np.float32)
+            
+            # Kuhanin ang dot product sa pagitan ng nakuhang mukha at ng rehistradong profiles matrix
+            sims = np.dot(reg_embs, emb)
+            best_idx = int(np.argmax(sims))
+            best_score = float(sims[best_idx])
+
+            target = user_meta[best_idx]
+            user_id = target["user_id"]
+            user_type = target["type"]
+
+            # Strict Authentication Threshold Verification Pass
+            threshold = 0.40 if user_type == "instructor" else 0.42
+            if best_score < threshold:
+                continue
+
+            # Anti-Duplicate filtering sa kasalukuyang stream window frame
+            if user_id in seen_user_ids:
+                continue
+            seen_user_ids.add(user_id)
+
+            # --- CASE A: KUNG INSTRUCTOR ANG NAKITA ---
+            if user_type == "instructor" or str(user_id) == str(instructor_id):
                 SESSION_INSTRUCTOR_DETECTED[class_id] = {
                     "log_id": str(log_id),
                     "detected": True
@@ -456,7 +517,7 @@ def multi_face_recognize():
                 instructor_detected = True
                 continue
 
-            # Fix 2 — cached student lookup
+            # --- CASE B: KUNG ESTUDYANTE ANG NAKITA ---
             student = get_student_cached(user_id)
             if not student:
                 continue
@@ -466,14 +527,14 @@ def multi_face_recognize():
             last = student.get("last_name") or student.get("Last_Name", "")
             student_data = {"student_id": stud_id, "first_name": first, "last_name": last}
 
+            # Subukan kung nasa memory cache na ang estudyante para iwas-DB lookup loop
             cache_entry = SESSION_LOGGED_STUDENTS[class_id].get(user_id)
             if cache_entry and cache_entry.get("log_id") == str(log_id):
                 results.append({
                     **student_data,
                     "status": cache_entry["status"],
                     "time": now_readable,
-                    "bbox": bbox,
-                    "match_score": match_score,
+                    "match_score": round(best_score, 4),
                     "spoof_status": spoof_status,
                     "spoof_confidence": spoof_confidence,
                     "real_prob": real_prob,
@@ -481,6 +542,7 @@ def multi_face_recognize():
                 })
                 continue
 
+            # Kung wala sa cache, silipin sa database kung nakalista na ito kanina
             existing = attendance_collection.find_one(
                 {"_id": log_id, "students.student_id": stud_id},
                 {"students.$": 1}
@@ -493,12 +555,13 @@ def multi_face_recognize():
                 }
                 results.append({
                     **student_data, "status": status, "time": now_readable,
-                    "bbox": bbox, "match_score": match_score,
+                    "match_score": round(best_score, 4),
                     "spoof_status": spoof_status, "spoof_confidence": spoof_confidence,
                     "real_prob": real_prob, "spoof_prob": spoof_prob
                 })
                 continue
 
+            # Kalkulahin ang status (Late vs Present) kung bago pa lang itatala ang attendance nito
             try:
                 class_dt = datetime.strptime(att_log["start_time"], "%H:%M:%S").replace(
                     year=now.year, month=now.month, day=now.day
@@ -507,6 +570,7 @@ def multi_face_recognize():
             except Exception:
                 status = "Present"
 
+            # I-commit at itala na ang bagong student node sa MongoDB document cluster
             attendance_collection.update_one(
                 {"_id": log_id},
                 {
@@ -518,12 +582,13 @@ def multi_face_recognize():
                 }
             )
 
+            # I-commit sa cache para sa susunod na scan interval frame loop
             SESSION_LOGGED_STUDENTS[class_id][user_id] = {
                 "status": status, "log_id": str(log_id)
             }
             results.append({
                 **student_data, "status": status, "time": now_readable,
-                "bbox": bbox, "match_score": match_score,
+                "match_score": round(best_score, 4),
                 "spoof_status": spoof_status, "spoof_confidence": spoof_confidence,
                 "real_prob": real_prob, "spoof_prob": spoof_prob
             })

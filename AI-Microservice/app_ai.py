@@ -216,111 +216,73 @@ def recognize_route():
         print("Error in /recognize:", traceback.format_exc(), flush=True)
         return jsonify({"success": False, "error": "Internal server error"}), 500
     
-@app.post("/recognize-multi")
-def recognize_multi_route():
+@app.post("/extract-features")
+def extract_features_route():
+    """
+    Optimized Feature Extraction Pipeline for Batch Faces.
+    Performs fast anti-spoof checks first before generating embeddings.
+    """
     try:
         data = request.get_json(force=True, silent=True) or {}
         faces = data.get("faces", [])
-        registered_faces = data.get("registered_faces", [])
 
         if not faces:
             return jsonify({"success": False, "error": "Missing faces list"}), 400
 
-        recognized = []
-        embeddings_list = []
-        user_meta = []
-
-        for r in registered_faces:
-            emb = np.array(r.get("embedding"), dtype=np.float32)
-            if emb.shape != (512,):
-                print(f"Invalid embedding shape: {emb.shape}", flush=True)
-                continue
-            norm = np.linalg.norm(emb)
-            if norm < 1e-3:
-                print("near-zero registered embedding", flush=True)
-                continue
-            embeddings_list.append(emb / norm)
-            user_meta.append({
-                "user_id": r.get("user_id"),
-                "type": "instructor" if r.get("is_instructor") else r.get("type", "student")
-            })
-
-        if not embeddings_list:
-            return jsonify({"success": True, "recognized": []}), 200
-
-        reg_embs = np.stack(embeddings_list, axis=0)
-        seen_user_ids = set()  # Fix 5
+        extracted_features = []
 
         for base64_image in faces:
-
-            # Fix 1 — decode once
             img_bgr = read_b64_to_bgr(base64_image)
+            
+            # Validation: Filter out completely empty or broken crops
             if img_bgr is None or img_bgr.size == 0 or np.mean(img_bgr) < 5:
-                print("Skipping invalid crop", flush=True)
+                logging.warning("Skipping invalid or low-contrast face crop.")
                 continue
 
-            # Fix 2 — correct function (no internal flip)
+            # 1. RUN ANTI-SPOOFING FIRST (Fail-fast optimization mechanism)
+            is_real, confidence, probs = check_real_or_spoof(img_bgr)
+            spoof_status = "Real" if is_real else "Spoof"
+            
+            if spoof_status == "Spoof":
+                logging.info("Spoof signature intercepted. Skipping heavy computation matrix pass.")
+                extracted_features.append({
+                    "spoof_status": "Spoof",
+                    "embedding": None,
+                    "spoof_confidence": float(confidence),
+                    "real_prob": float(probs["real"]),
+                    "spoof_prob": float(probs["spoof"])
+                })
+                continue
+
+            # 2. RUN EMBEDDING EXTRACTION (Only for legitimate live human streams)
             emb = get_face_embedding(img_bgr)
             if emb is None:
-                print("No embedding extracted", flush=True)
+                logging.warning("No face embedding structural parameters extracted.")
                 continue
 
             emb = np.squeeze(np.array(emb, dtype=np.float32))
             if emb.shape != (512,):
-                print(f"Invalid face embedding dim: {emb.shape}", flush=True)
+                logging.warning(f"Invalid dimensional layout found: {emb.shape}")
                 continue
 
-            # Fix 3 — sanity check only, don't re-normalize
+            # Ensure unit normalization prior to network transit
             norm = np.linalg.norm(emb)
-            if norm < 0.5:
-                print(f"Suspicious embedding norm: {norm:.4f}", flush=True)
-                continue
+            if norm > 1e-3:
+                emb = emb / norm
 
-            sims = np.dot(reg_embs, emb)
-            best_idx = int(np.argmax(sims))
-            best_score = float(sims[best_idx])
-
-            target = user_meta[best_idx]
-            user_id = target["user_id"]
-            user_type = target["type"]
-
-            print(f"Match {user_type.upper()} {user_id} → cosine={best_score:.4f}")
-
-            # Fix 4 — raise thresholds
-            threshold = 0.40 if user_type == "instructor" else 0.42
-            if best_score < threshold:
-                print(f"Below threshold ({best_score:.4f} < {threshold})", flush=True)
-                continue
-
-            # Fix 5 — skip duplicates
-            if user_id in seen_user_ids:
-                print(f"Duplicate skipped: {user_id}", flush=True)
-                continue
-            seen_user_ids.add(user_id)
-
-            # Fix 1 — reuse img_bgr, no second decode
-            is_real, confidence, probs = check_real_or_spoof(img_bgr)
-            spoof_status = "Real" if is_real else "Spoof"
-
-            if spoof_status == "Spoof":
-                print(f"SPOOF blocked: {user_id} (score={best_score:.4f})")
-                continue
-
-            recognized.append({
-                "user_id": user_id,
-                "type": user_type,
-                "match_score": round(best_score, 4),
-                "spoof_status": spoof_status,
-                "spoof_confidence": confidence,
-                "real_prob": probs["real"],
-                "spoof_prob": probs["spoof"]
+            extracted_features.append({
+                "spoof_status": "Real",
+                "embedding": emb.tolist(),
+                "spoof_confidence": float(confidence),
+                "real_prob": float(probs["real"]),
+                "spoof_prob": float(probs["spoof"])
             })
 
-        print(f"Recognized {len(recognized)} face(s)")
-        return jsonify({"success": True, "recognized": recognized}), 200
+        logging.info(f"/extract-features → Processed {len(extracted_features)} valid payload targets.")
+        return jsonify({"success": True, "features": extracted_features}), 200
 
     except Exception:
-        print("Error in /recognize-multi:", traceback.format_exc())
+        logging.error(f"Critical crash inside execution context loop: {traceback.format_exc()}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
 

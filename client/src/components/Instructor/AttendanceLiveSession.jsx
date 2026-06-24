@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import * as faceapi from "face-api.js";
-import { toast } from "react-toastify";
 
-// ⚡ Global model loader — loads once, reused across all sessions
+// Global model loader — loads once, reused across all sessions
 let modelsLoaded = false;
 let modelsLoadingPromise = null;
 
@@ -12,7 +11,6 @@ const loadModels = () => {
   if (modelsLoadingPromise) return modelsLoadingPromise;
 
   modelsLoadingPromise = Promise.all([
-    // SsdMobilenetv1 — best for multi-face + far distance detection
     faceapi.nets.ssdMobilenetv1.loadFromUri("/models"),
   ]).then(() => {
     modelsLoaded = true;
@@ -43,13 +41,14 @@ const AttendanceLiveSession = ({
   const isDetectingRef = useRef(true);
   const timerRef = useRef(null);
   const abortControllerRef = useRef(null);
-  const toastedIdsRef = useRef(new Set());
+  const registeredIdsRef = useRef(new Set());
   const isProcessingFrame = useRef(false);
   const lastSentRef = useRef(0);
   const rafIdRef = useRef(null);
-  const [blurWarning, setBlurWarning] = useState(false);
-  const blurWarningTimerRef = useRef(null);
   const [faceCount, setFaceCount] = useState(0);
+
+  // Mapping lookup to tie detected student coordinates directly to names on canvas
+  const studentMapRef = useRef(new Map());
 
   const formatName = (value = "") =>
     value
@@ -82,15 +81,13 @@ const AttendanceLiveSession = ({
 
     const init = async () => {
       try {
-        console.log("Loading face-api.js models...");
-
         const [, userStream] = await Promise.all([
           loadModels(),
           navigator.mediaDevices.getUserMedia({
             video: {
               width: { ideal: 640 },
               height: { ideal: 480 },
-              frameRate: { ideal: 20 }
+              frameRate: { ideal: 30 } // Increased target frame rate for smoothness
             }
           }),
         ]);
@@ -107,11 +104,10 @@ const AttendanceLiveSession = ({
 
         setIsStarting(false);
         startTimer();
-        await new Promise((res) => setTimeout(res, 500));
+        await new Promise((res) => setTimeout(res, 300));
         startDetectionLoop();
       } catch (err) {
-        console.error("Init failed:", err);
-        alert("Camera or model initialization failed. Please reload.");
+        console.error("Initialization failed:", err);
       }
     };
 
@@ -120,9 +116,8 @@ const AttendanceLiveSession = ({
     return () => {
       isDetectingRef.current = false;
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-      if (blurWarningTimerRef.current) clearTimeout(blurWarningTimerRef.current);
       stopTimer();
-      toastedIdsRef.current.clear();
+      registeredIdsRef.current.clear();
       if (stream) stream.getTracks().forEach((t) => t.stop());
     };
   }, [activeClassId]);
@@ -132,7 +127,7 @@ const AttendanceLiveSession = ({
     const canvas = canvasRef.current;
 
     let lastDetectionTime = 0;
-    const DETECTION_INTERVAL = 150; // ~15fps detection
+    const DETECTION_INTERVAL = 100; // Smoother tracking intervals (~10fps recognition passes, high fluid layout)
 
     const processFrame = async (now) => {
       if (
@@ -153,16 +148,13 @@ const AttendanceLiveSession = ({
       }
       lastDetectionTime = now;
 
-      // face-api.js SSD detection
-      // minConfidence: 0.3 — lower threshold catches small/distant faces
       let detections = [];
       try {
         detections = await faceapi.detectAllFaces(
           video,
-          new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 })
+          new faceapi.SsdMobilenetv1Options({ minConfidence: 0.25 })
         );
       } catch (err) {
-        console.warn("Detection error:", err);
         rafIdRef.current = requestAnimationFrame(processFrame);
         return;
       }
@@ -177,10 +169,7 @@ const AttendanceLiveSession = ({
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, width, height);
 
-
       const facesToSend = [];
-      const BLUR_THRESHOLD = 120;
-
       setFaceCount(detections.length);
 
       if (detections.length > 0) {
@@ -188,54 +177,49 @@ const AttendanceLiveSession = ({
         ctx.scale(-1, 1);
         ctx.translate(-width, 0);
 
-        for (const detection of detections) {
+        detections.forEach((detection, idx) => {
           const box = detection.box;
-          const padding = Math.max(30, Math.round(box.width * 0.25));
+          const padding = Math.max(25, Math.round(box.width * 0.2));
           const x = Math.max(0, box.x - padding);
           const y = Math.max(0, box.y - padding);
           const boxW = Math.min(width - x, box.width + padding * 2);
           const boxH = Math.min(height - y, box.height + padding * 2);
 
-          if (boxW <= 1 || boxH <= 1) continue;
+          if (boxW <= 1 || boxH <= 1) return;
 
-          const blurScore = getBlurScore(video, x, y, boxW, boxH, width);
-          const isBlurry = blurScore < BLUR_THRESHOLD;
-
-          // Draw bounding box
-          ctx.strokeStyle = isBlurry ? "orange" : "lime";
-          ctx.lineWidth = 2;
+          // Box Boundary Color Selection Strategy (#008C45 Accent)
+          ctx.strokeStyle = "#008C45";
+          ctx.lineWidth = 3;
+          ctx.lineJoin = "round";
           ctx.strokeRect(x, y, boxW, boxH);
 
-          // Draw confidence score above box
-          const detScore = Math.round(detection.score * 100);
-          ctx.fillStyle = isBlurry ? "orange" : "lime";
-          ctx.font = "12px monospace";
-          ctx.fillText(
-            isBlurry ? `BLUR(${Math.round(blurScore)})` : `${detScore}%`,
-            x, y - 5
-          );
+          // Find if we have a resolved student name for this ongoing boundary index layout
+          const currentLoggedArray = Array.from(studentMapRef.current.values());
+          const matchingStudent = currentLoggedArray[idx] || currentLoggedArray[currentLoggedArray.length - 1 - idx];
+          const labelText = matchingStudent ? `${matchingStudent.first_name} ${matchingStudent.last_name}` : "Scanning...";
 
-          if (isBlurry) {
-            setBlurWarning(true);
-            if (blurWarningTimerRef.current) clearTimeout(blurWarningTimerRef.current);
-            blurWarningTimerRef.current = setTimeout(() => setBlurWarning(false), 2000);
-            continue;
-          }
+          // Premium label typography backing
+          ctx.fillStyle = "#0A3A23";
+          ctx.font = "600 14px Inter, sans-serif";
+          const textWidth = ctx.measureText(labelText).width;
+          
+          ctx.fillRect(x - 1.5, y - 26, textWidth + 16, 26);
+          ctx.fillStyle = "#F5F3F0";
+          ctx.fillText(labelText, x + 8, y - 8);
 
           const face = cropFace(video, x, y, boxW, boxH, width);
           if (face) facesToSend.push(face);
-        }
+        });
 
         ctx.restore();
 
-        // Unified throttle: send once per 500ms, only if not already processing
         if (facesToSend.length > 0 && !isProcessingFrame.current) {
           const nowMs = Date.now();
-          if (nowMs - lastSentRef.current > 1500) {
+          if (nowMs - lastSentRef.current > 1200) {
             lastSentRef.current = nowMs;
             isProcessingFrame.current = true;
             sendFaces(facesToSend)
-              .catch((err) => console.error("❌ Recognition error:", err))
+              .catch((err) => console.error("Recognition Error:", err))
               .finally(() => {
                 isProcessingFrame.current = false;
               });
@@ -251,37 +235,8 @@ const AttendanceLiveSession = ({
     rafIdRef.current = requestAnimationFrame(processFrame);
   };
 
-  const getBlurScore = (video, x, y, w, h, videoWidth) => {
-    const tmp = document.createElement("canvas");
-    tmp.width = w;
-    tmp.height = h;
-    const ctx = tmp.getContext("2d");
-
-    // mirror-correct same as cropFace
-    ctx.translate(w, 0);
-    ctx.scale(-1, 1);
-    const mirroredX = videoWidth - (x + w);
-    ctx.drawImage(video, mirroredX, y, w, h, 0, 0, w, h);
-
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const pixels = imageData.data;
-
-    // Compute grayscale variance — low variance = blurry
-    let sum = 0, sumSq = 0, count = 0;
-    for (let i = 0; i < pixels.length; i += 4) {
-      const gray = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-      sum += gray;
-      sumSq += gray * gray;
-      count++;
-    }
-    const mean = sum / count;
-    const variance = (sumSq / count) - (mean * mean);
-    return variance;
-  };
-
   const sendFaces = async (facesToSend) => {
     if (!isDetectingRef.current || isStopping) return;
-
     abortControllerRef.current = new AbortController();
 
     try {
@@ -290,8 +245,6 @@ const AttendanceLiveSession = ({
         { faces: facesToSend, class_id: activeClassId },
         { signal: abortControllerRef.current.signal }
       );
-
-      console.log("Backend responded:", res.data);
 
       if (typeof res.data.instructor_detected !== "undefined") {
         setInstructorDetected(res.data.instructor_detected);
@@ -309,7 +262,7 @@ const AttendanceLiveSession = ({
           student_id: s.student_id,
           first_name: formatName(s.first_name || ""),
           last_name: formatName(s.last_name || ""),
-          status: s.status,
+          status: s.status || "Present",
           time:
             s.time ||
             new Date().toLocaleTimeString("en-US", {
@@ -317,76 +270,28 @@ const AttendanceLiveSession = ({
               minute: "2-digit",
               hour12: true,
             }),
-          subject_code: s.subject_code || res.data.subject_code || "",
-          subject_title: s.subject_title || res.data.subject_title || "",
         }));
 
         setRecognized((prev) => {
           const updated = [...prev];
           enrichedData.forEach((newFace) => {
-            const index = updated.findIndex(
-              (f) => f.student_id === newFace.student_id
-            );
+            studentMapRef.current.set(newFace.student_id, newFace);
+            const index = updated.findIndex((f) => f.student_id === newFace.student_id);
             if (index !== -1) {
-              updated[index] = {
-                ...updated[index],
-                ...newFace,
-                status: newFace.status || updated[index].status,
-              };
+              updated[index] = { ...updated[index], ...newFace };
             } else {
-              updated.push(newFace);
+              updated.unshift(newFace); // Unshift pushes new records perfectly to the top
             }
           });
           return updated;
         });
-
-        res.data.logged.forEach((student) => {
-          if (!toastedIdsRef.current.has(student.student_id)) {
-            toastedIdsRef.current.add(student.student_id);
-
-            const displayStatus = student.status ?? "Present";
-            const color =
-              displayStatus === "Late"
-                ? "#facc15"
-                : displayStatus === "Present"
-                ? "#22c55e"
-                : "#ef4444";
-
-            if (student.spoof_status === "Spoof") {
-              toast(
-                `${formatName(student.first_name)} ${formatName(
-                  student.last_name
-                )} is a SPOOF`,
-                {
-                  autoClose: 1500,
-                  style: { background: "#ef4444", color: "#fff", fontWeight: "600" },
-                }
-              );
-            } else {
-              toast(
-                `${formatName(student.first_name)} ${formatName(
-                  student.last_name
-                )} marked as ${displayStatus}`,
-                {
-                  autoClose: 1500,
-                  style: {
-                    background: color,
-                    color: displayStatus === "Late" ? "#000" : "#fff",
-                    fontWeight: "600",
-                  },
-                }
-              );
-            }
-          }
-        });
       }
     } catch (err) {
       if (axios.isCancel(err) || err?.code === "ERR_CANCELED") return;
-      console.error("Recognition error:", err);
+      console.error("Frame recognition transaction anomaly skipped:", err);
     }
   };
 
-  // Crop face with mirror correction — 224px for better distant face quality
   const cropFace = (video, x, y, boxW, boxH, videoWidth) => {
     const tmp = document.createElement("canvas");
     const ctx = tmp.getContext("2d");
@@ -402,29 +307,16 @@ const AttendanceLiveSession = ({
     const mirroredX = videoWidth - (x + boxW);
     ctx.drawImage(video, mirroredX, y, boxW, boxH, 0, 0, targetSize, targetSize);
 
-    return tmp.toDataURL("image/jpeg", 0.80);
+    return tmp.toDataURL("image/jpeg", 0.85);
   };
-
-  const formatSemester = (sem) => {
-    if (!sem) return "";
-    const lower = sem.toLowerCase();
-    if (lower.includes("1st")) return "1st Semester";
-    if (lower.includes("2nd")) return "2nd Semester";
-    if (lower.includes("mid")) return "Summer";
-    return sem;
-  };
-
-  const isStoppingRef = useRef(false);
 
   const handleStopSession = async () => {
     try {
-      isStoppingRef.current = true;
       setIsStopping(true);
       isDetectingRef.current = false;
 
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (abortControllerRef.current) abortControllerRef.current.abort();
-
       stopTimer();
 
       if (videoRef.current?.srcObject) {
@@ -432,150 +324,161 @@ const AttendanceLiveSession = ({
         videoRef.current.srcObject = null;
       }
 
-      const res = await axios.post(
-        `http://127.0.0.1:8080/api/attendance/stop-session`,
-        { class_id: activeClassId }
-      );
+      const res = await axios.post(`http://127.0.0.1:8080/api/attendance/stop-session`, {
+        class_id: activeClassId,
+      });
 
-      const resolvedClassId =
-        res.data?.class?.class_id || activeClassId;
-      if (resolvedClassId) {localStorage.setItem("lastClassId", resolvedClassId);}
-      if (res.data?.success) {toast.success("Session stopped successfully!");}
-      await new Promise((res) => setTimeout(res, 150));
+      const resolvedClassId = res.data?.class?.class_id || activeClassId;
+      if (resolvedClassId) {
+        localStorage.setItem("lastClassId", resolvedClassId);
+      }
       if (onStopSession) onStopSession();
-    } catch {
-      toast.error("Failed to stop attendance session.");
+    } catch (error) {
+      console.error("Error stopping session:", error);
     } finally {
       setIsStopping(false);
     }
   };
 
   return (
-    <div className="flex flex-row items-start bg-neutral-950 text-white p-6 shadow-lg gap-6">
-      <div className="relative flex-[3] rounded-xl overflow-hidden border border-white/10">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-auto rounded-xl transform scale-x-[-1]"
-        />
-        <canvas
-          ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full pointer-events-none"
-        />
-
-        <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg text-sm font-mono border border-white/20 shadow">
-          ⏱ {elapsedTime}
-        </div>
-
-        <div className={`absolute top-12 left-4 backdrop-blur-md px-3 py-1 rounded-lg text-sm font-mono border shadow transition-colors duration-300 ${
-          faceCount === 0
-            ? "bg-red-900/60 border-red-500/40 text-red-300"
-            : "bg-black/60 border-white/20 text-white"
-        }`}>
-          👤 {faceCount} face{faceCount !== 1 ? "s" : ""} detected
-        </div>
-
-        {blurWarning && (
-          <div className="absolute bottom-14 left-4 bg-orange-500/80 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-semibold text-black border border-orange-300 shadow">
-            ⚠️ Face too blurry — move closer or improve lighting
-          </div>
-        )}
-
-        <div className="absolute top-4 right-4">
-          {instructorDetected ? (
-            <div className="bg-emerald-600/80 px-3 py-1 rounded-lg text-xs font-semibold text-black border border-emerald-300 shadow-lg">
-              Instructor Verified
-              <br />
-              <span className="text-[10px] opacity-80">{instructorName}</span>
-            </div>
-          ) : (
-            <div className="bg-red-600/80 px-3 py-1 rounded-lg text-xs font-semibold text-white border border-red-300 shadow-lg">
-              Instructor Not Detected
-            </div>
-          )}
-        </div>
-
-        <div className="absolute bottom-4 right-4">
-          <button
-            onClick={handleStopSession}
-            disabled={isStopping}
-            className={`${
-              isStopping ? "opacity-50 cursor-not-allowed" : "hover:bg-red-700"
-            } bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-300`}
-          >
-            {isStopping ? "Stopping..." : "Stop Session"}
-          </button>
-        </div>
-
+    <div className="flex flex-col lg:flex-row items-stretch justify-between w-full min-h-screen bg-[#F5F3F0] p-6 gap-6 font-sans antialiased text-[#0A3A23]">
+      
+      {/* LEFT CAMERA PANEL CONTAINER */}
+      <div className="relative flex-[3] flex flex-col items-center justify-center bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden p-3 min-h-[500px]">
+        
         {isStarting && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-gray-300">
-            Initializing camera...
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#F5F3F0] space-y-3">
+            <div className="w-10 h-10 border-4 border-[#008C45] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm font-medium text-neutral-500 tracking-wide">Securing visual hardware streaming channel...</p>
           </div>
         )}
+
+        <div className="relative w-full h-full overflow-hidden rounded-xl bg-neutral-900">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover transform scale-x-[-1]"
+          />
+          <canvas
+            ref={canvasRef}
+            className="absolute top-0 left-0 w-full h-full pointer-events-none z-10"
+          />
+
+          {/* Minimalist Floating Overlay Controls */}
+          <div className="absolute bottom-5 left-5 right-5 z-10 flex items-center justify-between pointer-events-none">
+            {/* Live Counter Tracking Frame */}
+            <div className="bg-[#0A3A23]/90 backdrop-blur-md text-[#F5F3F0] px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wider uppercase border border-white/10 shadow-lg pointer-events-auto transition-transform duration-200">
+              {faceCount} {faceCount === 1 ? "Face Detected" : "Faces Detected"}
+            </div>
+
+            {/* Quick Kill Action Switch */}
+            <button
+              onClick={handleStopSession}
+              disabled={isStopping}
+              className={`pointer-events-auto px-5 py-2.5 rounded-xl font-bold tracking-wide text-xs uppercase shadow-xl border border-transparent text-white transition-all duration-200 ${
+                isStopping 
+                  ? "bg-neutral-500 cursor-not-allowed opacity-50" 
+                  : "bg-[#950606] hover:bg-[#950606]/90 transform active:scale-95"
+              }`}
+            >
+              {isStopping ? "Stopping..." : "Stop Session"}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-[1] bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
-        <h3 className="text-lg font-semibold text-emerald-300 mb-1">
-          Recent Detections
-        </h3>
-
-        <p className="text-sm text-white font-bold">
-          {subjectCode && subjectTitle
-            ? `${subjectCode} – ${subjectTitle}`
-            : "No subject info"}
-        </p>
-        <p className="text-xs text-gray-400 mb-1">
-          {course} {section} • {formatSemester(semester)} • SY {schoolYear}
-        </p>
-        <span className="text-[11px] text-gray-500">
-          {new Date().toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </span>
-
-        <hr className="my-3 border-white/10" />
-
-        {recognized.length === 0 ? (
-          <p className="text-gray-400 text-sm italic">
-            No faces recognized yet...
-          </p>
-        ) : (
-          <ul className="space-y-2 max-h-[500px] overflow-y-auto">
-            {recognized.map((r) => (
-              <li
-                key={r.student_id}
-                className="flex items-center justify-between bg-white/5 rounded-lg p-2 border border-white/10 hover:bg-white/10 transition"
-              >
-                <div>
-                  <p className="font-semibold text-white text-sm">
-                    {formatName(r.first_name)} {formatName(r.last_name)}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {r.student_id} •{" "}
-                    <span className="text-gray-300 font-mono">
-                      {r.time || "—"}
-                    </span>
-                  </p>
-                </div>
-                <span
-                  className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                    r.status === "Late"
-                      ? "bg-yellow-500 text-black"
-                      : r.status === "Present"
-                      ? "bg-emerald-500 text-black"
-                      : "bg-red-500 text-white"
-                  }`}
-                >
-                  {r.status}
+      {/* RIGHT METRICS & RECORD LOG PANEL */}
+      <div className="flex-[1.2] flex flex-col bg-white rounded-2xl border border-neutral-200/80 shadow-sm p-6 overflow-hidden">
+        
+        {/* INSTRUCTOR VERIFICATION MATRIX SECTION */}
+        <div className="mb-5 pb-5 border-b border-neutral-100">
+          <p className="text-[11px] uppercase tracking-widest font-bold text-neutral-400 mb-2">Live Supervisor Node</p>
+          <div className="flex items-center justify-between bg-[#F5F3F0] p-3.5 rounded-xl border border-neutral-200/40">
+            <div className="overflow-hidden pr-2">
+              <h4 className="text-xs text-neutral-400 font-medium">Instructor Assigned</h4>
+              <p className="text-sm font-bold truncate mt-0.5 text-[#0A3A23]">
+                {instructorName ? instructorName : "Awaiting Verification"}
+              </p>
+            </div>
+            <div>
+              {instructorDetected ? (
+                <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#008C45]/10 text-[#008C45] border border-[#008C45]/20">
+                  Verified
                 </span>
-              </li>
-            ))}
-          </ul>
-        )}
+              ) : (
+                <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#950606]/10 text-[#950606] border border-[#950606]/20 animate-pulse">
+                  Missing
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* METADATA SUMMARY CARD */}
+        <div className="mb-5">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="text-base font-extrabold tracking-tight text-[#0A3A23] truncate">
+              {subjectCode && subjectTitle ? `${subjectCode} — ${subjectTitle}` : "Live Feed Stream"}
+            </h3>
+            <span className="shrink-0 font-mono text-xs font-bold text-[#008C45] bg-[#008C45]/10 px-2.5 py-1 rounded-lg">
+              {elapsedTime}
+            </span>
+          </div>
+          
+          <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+            {course} {section} • {semester} • SY {schoolYear}
+          </p>
+          <p className="text-[11px] text-neutral-400 font-semibold mt-1">
+            {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+          </p>
+        </div>
+
+        {/* ATTENDANCE SCROLLABLE REAL-TIME ROSTER LOG */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-[11px] uppercase tracking-widest font-bold text-neutral-400">Activity Roster</h4>
+            <span className="text-[10px] bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full font-bold">
+              {recognized.length} Logged
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 scrollbar-thin scrollbar-thumb-neutral-200">
+            {recognized.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-neutral-100 rounded-xl">
+                <p className="text-xs text-neutral-400 italic font-medium">Scanning operational array space for authorized face profiles...</p>
+              </div>
+            ) : (
+              recognized.map((student) => {
+                // Inline mapping layout color selector variables
+                let badgeStyle = "bg-[#008C45] text-white";
+                if (student.status === "Late") badgeStyle = "bg-[#FDCC0D] text-[#0A3A23]";
+                if (student.status === "Absent") badgeStyle = "bg-[#950606] text-white";
+
+                return (
+                  <div
+                    key={student.student_id}
+                    className="flex items-center justify-between bg-white border border-neutral-100 rounded-xl p-3 shadow-2xs hover:border-neutral-200/80 hover:bg-[#F5F3F0]/20 transition-all duration-150"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="font-bold text-sm text-[#0A3A23] truncate">
+                        {student.first_name} {student.last_name}
+                      </p>
+                      <p className="text-xs text-neutral-400 font-medium mt-0.5">
+                        {student.student_id} <span className="mx-1.5 text-neutral-300">•</span> <span className="font-mono text-[11px] text-neutral-500">{student.time}</span>
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1.5 rounded-lg ${badgeStyle}`}>
+                      {student.status}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
