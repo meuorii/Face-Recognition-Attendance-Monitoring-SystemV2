@@ -89,6 +89,23 @@ export const getInstructorSessions = async (classId) => {
   }
 };
 
+export const getLatestSessionLog = async (classId, instructorId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await API.get("/attendance/latest-session-log", {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { 
+        class_id: classId, 
+        instructor_id: instructorId 
+      },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("❌ Failed to fetch latest session log:", err);
+    throw err;
+  }
+};
+
 export const getInstructorById = async (instructorId) => {
   const token = localStorage.getItem("token");
   const res = await API.get(`/instructor/me/${instructorId}`, {
@@ -215,6 +232,8 @@ export const getAttendanceLogsByStudent = async (id) => {
   });
   return res.data;
 };
+
+
 
 export default API;
 

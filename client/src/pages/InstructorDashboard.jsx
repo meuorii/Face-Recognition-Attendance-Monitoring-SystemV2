@@ -85,7 +85,12 @@ const InstructorDashboard = () => {
           />
         );
       case "summary":
-        return <AttendanceSession refetchTrigger={activeClassId} />;
+        return (
+          <AttendanceSession 
+            classId={activeClassId || localStorage.getItem("lastClassId")} 
+            instructorId={instructor?.instructor_id || localStorage.getItem("instructorId")} 
+          />
+        );
       case "profile":
         return <InstructorProfile setActiveTab={setActiveTab} />;
       case "register-face":

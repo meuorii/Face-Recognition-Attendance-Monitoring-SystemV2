@@ -5,6 +5,19 @@ import { toast } from "react-toastify";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcuseModal from "./ExcuseModal";
+import { useModal } from "./ModalManager"; // 👈 Import your global modal custom hook
+import { 
+  FileSpreadsheet, 
+  Download, 
+  Users, 
+  UserCheck, 
+  UserX, 
+  UserMinus, 
+  Calendar, 
+  Clock, 
+  Search,
+  ExternalLink 
+} from "lucide-react";
 
 const AttendanceSession = () => {
   const [recognizedStudents, setRecognizedStudents] = useState([]);
@@ -12,8 +25,9 @@ const AttendanceSession = () => {
   const [loading, setLoading] = useState(true);
   const [sessionStart, setSessionStart] = useState(null);
   const [sessionEnd, setSessionEnd] = useState(null);
-  const [showExcuseModal, setShowExcuseModal] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { openModal, closeModal } = useModal(); // 👈 Destructure open/close methods
 
   const formatName = (value = "") => {
     return value
@@ -27,9 +41,21 @@ const AttendanceSession = () => {
       .join(" ");
   };
 
-  // ==========================================
-  // ✅ Fetch Latest Attendance Logs (NEW LOGIC)
-  // ==========================================
+  const convertTimeTo12Hour = (timeStr) => {
+    if (!timeStr) return "";
+    try {
+      const [hours, minutes] = timeStr.split(":");
+      let h = parseInt(hours, 10);
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12;
+      h = h ? h : 12;
+      const formattedHours = h < 10 ? `0${h}` : h;
+      return `${formattedHours}:${minutes} ${ampm}`;
+    } catch (e) {
+      return timeStr;
+    }
+  };
+
   useEffect(() => {
     const fetchLatestAttendance = async () => {
       try {
@@ -51,17 +77,10 @@ const AttendanceSession = () => {
           return;
         }
 
-        // 1️⃣ Sort by newest date
         dateGroups.sort((a, b) => new Date(b.date) - new Date(a.date));
         const latestDate = dateGroups[0];
-
-        // 2️⃣ Get sessions inside this date
         const sessions = latestDate.logs || [];
-
-        // Filter only THIS CLASS sessions
-        const filteredSessions = sessions.filter(
-          (s) => s.class_id === classId
-        );
+        const filteredSessions = sessions.filter((s) => s.class_id === classId);
 
         if (filteredSessions.length === 0) {
           setRecognizedStudents([]);
@@ -70,44 +89,38 @@ const AttendanceSession = () => {
           return;
         }
 
-        // 3️⃣ Sort sessions by time to get the latest one
-        filteredSessions.sort((a, b) =>
-          b.start_time.localeCompare(a.start_time)
-        );
-
+        filteredSessions.sort((a, b) => b.start_time.localeCompare(a.start_time));
         const latestSession = filteredSessions[0];
 
-        // 4️⃣ Save class/session info
         setLastClass(latestSession);
         setSessionStart(latestSession.start_time);
         setSessionEnd(latestSession.end_time);
 
-        // 5️⃣ Format students
-        const students = (latestSession.students || []).map((s) => ({
-          ...s,
-          first_name: formatName(s.first_name || ""),
-          last_name: formatName(s.last_name || ""),
+        const students = (latestSession.students || []).map((s) => {
+          let logTime = "N/A";
+          
+          if (s.status === "Absent") {
+            logTime = "—";
+          } else if (s.time && s.time !== "") {
+            logTime = convertTimeTo12Hour(s.time);
+          } else if (s.time_logged) {
+            logTime = new Date(s.time_logged).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            });
+          }
 
-          time:
-            s.status === "Absent"
-              ? "—"
-              : s.time && s.time !== ""
-              ? s.time
-              : s.time_logged
-              ? new Date(s.time_logged).toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: true,
-                })
-              : "N/A",
-        }));
+          return {
+            ...s,
+            first_name: formatName(s.first_name || ""),
+            last_name: formatName(s.last_name || ""),
+            time: logTime,
+          };
+        });
 
-
-        // Alphabetical sorting
         students.sort((a, b) =>
-          `${a.last_name} ${a.first_name}`.localeCompare(
-            `${b.last_name} ${b.first_name}`
-          )
+          `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`)
         );
 
         setRecognizedStudents(students);
@@ -115,7 +128,7 @@ const AttendanceSession = () => {
         console.error("❌ Error in AttendanceSession:", err);
         toast.error("Failed to load attendance summary");
       } finally {
-        setLoading(false);
+        loading && setLoading(false);
       }
     };
 
@@ -125,9 +138,6 @@ const AttendanceSession = () => {
     return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
-  // ==========================================
-  // Helper Formatters
-  // ==========================================
   const formatDate = (dateStr) =>
     dateStr
       ? new Date(dateStr).toLocaleDateString("en-US", {
@@ -136,23 +146,6 @@ const AttendanceSession = () => {
           day: "numeric",
         })
       : "";
-
-  const formatTime = (dateStr) =>
-    dateStr
-      ? new Date(dateStr).toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
-      : "";
-
-  // ==========================================
-  // Excuse Modal Logic
-  // ==========================================
-  const openExcuseModal = (student) => {
-    setSelectedStudent(student);
-    setShowExcuseModal(true);
-  };
 
   const handleExcuseMarked = (studentId, reason) => {
     setRecognizedStudents((prev) =>
@@ -164,276 +157,318 @@ const AttendanceSession = () => {
     );
   };
 
+  // 👈 Trigger global context modal instead of local flags
+  const handleOpenExcuseModal = (student) => {
+    openModal(
+      <ExcuseModal
+        student={student}
+        classId={lastClass?.class_id || localStorage.getItem("lastClassId")}
+        instructorId={localStorage.getItem("instructorId")}
+        onExcuseMarked={handleExcuseMarked}
+        onClose={closeModal}
+      />
+    );
+  };
+
   const formatSemester = (sem) => {
     if (!sem) return "";
     const s = sem.toLowerCase();
     if (s.includes("1st")) return "1st Semester";
     if (s.includes("2nd")) return "2nd Semester";
-    if (s.includes("mid")) return "Summer";
+    if (s.includes("mid") || s.includes("sum")) return "Summer";
     return sem;
   };
 
-  const formatTime12h = (timeStr) => {
-    if (!timeStr) return "Not Recorded";
-
-    // timeStr example: "16:03:14"
-    const [h, m, s] = timeStr.split(":");
-
-    const date = new Date();
-    date.setHours(Number(h), Number(m), Number(s));
-
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  };
-
-  // ==========================================
-  // Export PDF
-  // ==========================================
   const exportToPDF = () => {
     if (recognizedStudents.length === 0) {
-      toast.info("⚠ No attendance logs to export.");
+      toast.info("No attendance records to export.");
       return;
     }
 
     const doc = new jsPDF("p", "mm", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Logos
     doc.addImage("/ccit-logo.png", "PNG", 15, 10, 25, 25);
     doc.addImage("/prmsu.png", "PNG", pageWidth - 40, 10, 25, 25);
 
-    // Header
     doc.setFont("times", "bold");
     doc.setFontSize(14);
     doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
-    doc.text("President Ramon Magsaysay State University", pageWidth / 2, 25, {
-      align: "center",
-    });
+    doc.text("President Ramon Magsaysay State University", pageWidth / 2, 25, { align: "center" });
 
-    // Subheader
     doc.setFont("times", "italic");
     doc.setFontSize(11);
-    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, {
-      align: "center",
-    });
+    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, { align: "center" });
     doc.text("Iba, Zambales", pageWidth / 2, 38, { align: "center" });
 
-    // Title
     doc.setFont("times", "bold");
     doc.setFontSize(12);
-    doc.text(
-      "COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY",
-      pageWidth / 2,
-      45,
-      { align: "center" }
-    );
+    doc.text("COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY", pageWidth / 2, 45, { align: "center" });
 
     doc.setFontSize(14);
-    doc.setTextColor(34, 197, 94);
+    doc.setTextColor(0, 140, 69);
     doc.text("ATTENDANCE SUMMARY REPORT", pageWidth / 2, 55, { align: "center" });
 
-    // Class Info
     doc.setFont("times", "normal");
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
 
     if (lastClass) {
-      doc.text(
-        `Subject: ${lastClass.subject_code} – ${lastClass.subject_title}`,
-        20,
-        65
-      );
-      doc.text(
-        `Instructor: ${formatName(lastClass.instructor_first_name)} ${formatName(lastClass.instructor_last_name)}`,
-        20,
-        72
-      );
-      doc.text(
-        `Course: ${lastClass.course} | Section: ${lastClass.section}`,
-        20,
-        79
-      );
+      doc.text(`Subject: ${lastClass.subject_code} – ${lastClass.subject_title}`, 20, 65);
+      doc.text(`Instructor: ${formatName(lastClass.instructor_first_name)} ${formatName(lastClass.instructor_last_name)}`, 20, 72);
+      doc.text(`Course & Section: ${lastClass.course} ${lastClass.section}`, 20, 79);
+      doc.text(`Academic Year: ${lastClass.school_year || "N/A"} | ${formatSemester(lastClass.semester)}`, 20, 86);
     }
 
-    // Date + Time Range
     doc.setFont("times", "italic");
     doc.setFontSize(11);
     doc.setTextColor(80, 80, 80);
-    doc.text(`Date: ${formatDate(new Date().toISOString())}`, 20, 87);
+    doc.text(`Date: ${formatDate(new Date().toISOString())}`, 20, 94);
 
     if (sessionStart && sessionEnd) {
-      doc.text(
-        `Time: ${formatTime(sessionStart)} - ${formatTime(sessionEnd)}`,
-        20,
-        94
-      );
+      doc.text(`Class Schedule: ${convertTimeTo12Hour(sessionStart)} - ${convertTimeTo12Hour(sessionEnd)}`, 20, 101);
     }
 
-    // Summary
-    const presentCount = recognizedStudents.filter((s) => s.status === "Present")
-      .length;
-    const absentCount = recognizedStudents.filter((s) => s.status === "Absent")
-      .length;
+    const presentCount = recognizedStudents.filter((s) => s.status === "Present").length;
+    const absentCount = recognizedStudents.filter((s) => s.status === "Absent").length;
     const lateCount = recognizedStudents.filter((s) => s.status === "Late").length;
 
     doc.setFont("times", "bold");
     doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text(
-      `Summary → Present: ${presentCount} | Absent: ${absentCount} | Late: ${lateCount}`,
-      20,
-      104
-    );
+    doc.text(`Summary: Present: ${presentCount} | Absent: ${absentCount} | Late: ${lateCount}`, 20, 111);
 
-    // Table
     autoTable(doc, {
-      startY: 112,
+      startY: 118,
       head: [["Student ID", "Name", "Status", "Time"]],
       body: recognizedStudents.map((s) => [
         s.student_id,
         `${formatName(s.first_name)} ${formatName(s.last_name)}`,
         s.status,
-        s.time || (s.status === "Absent" ? "—" : "N/A"),
+        s.time,
       ]),
     });
 
     doc.save("attendance_summary_report.pdf");
   };
 
-  // ==========================================
-  // UI
-  // ==========================================
+  const presentCount = recognizedStudents.filter((s) => s.status === "Present").length;
+  const lateCount = recognizedStudents.filter((s) => s.status === "Late").length;
+  const absentCount = recognizedStudents.filter((s) => s.status === "Absent").length;
+  const excusedCount = recognizedStudents.filter((s) => s.status === "Excused").length;
+
+  const filteredStudents = recognizedStudents.filter((student) =>
+    `${student.first_name} ${student.last_name} ${student.student_id}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="relative min-h-screen bg-neutral-950 text-white p-8 overflow-hidden rounded-2xl">
-
-      {/* Background Glow */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
-
-      {/* Header */}
-      <div className="relative z-10 mb-6 flex flex-col gap-2">
-        <h2 className="text-3xl font-extrabold text-transparent bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text flex items-center gap-2">
-          🧾 Attendance Summary
-        </h2>
-
-        {/* Class Info */}
-        {lastClass && (
-          <div className="flex flex-col gap-0.5 mt-1">
-
-            <p className="text-lg font-semibold text-white">
-              {lastClass.subject_code} — {lastClass.subject_title}
-            </p>
-
-            <p className="text-gray-400 text-xs">
-              {lastClass.course} ({lastClass.section})
-              {" • "}{formatSemester(lastClass.semester)}
-              {" • SY "}{lastClass.school_year}
-              {" • Start "}{formatTime12h(lastClass.start_time)}
-              {" • End "}{formatTime12h(lastClass.end_time)}
-            </p>
-
+    <div className="w-full text-[#0A3A23] font-sans antialiased box-border p-0 m-0">
+      
+      {/* Header section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 border-b border-[#0A3A23]/5 pb-6 mb-8">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-[#0A3A23]">
+              Attendance Summary
+            </h2>
           </div>
-        )}
-
-        {/* Date */}
-        <span className="inline-block bg-white/10 backdrop-blur-md border border-white/20 text-emerald-300 text-xs font-medium px-3 py-1 rounded-full w-fit mt-2 shadow">
-          {formatDate(new Date().toISOString())}
-        </span>
-      </div>
-
-      {/* STUDENTS LIST */}
-      <div className="relative z-10 bg-white/10 backdrop-blur-lg rounded-2xl shadow-lg border border-white/10 p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-emerald-300">Attendance Summary</h3>
-
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">
-              Total:{" "}
-              <span className="text-white font-bold">
-                {recognizedStudents.length}
-              </span>
-            </span>
-
-            <button
-              onClick={exportToPDF}
-              className="px-4 py-2 rounded-lg text-white text-sm font-semibold
-                bg-gradient-to-r from-emerald-500 to-green-600 shadow-md
-                hover:from-green-600 hover:to-emerald-700 hover:shadow-emerald-500/30
-                transition-all duration-300"
-            >
-              Export PDF
-            </button>
-          </div>
+          <p className="text-[11px] text-[#0A3A23]/50 font-bold uppercase tracking-widest mt-1.5">
+            View student attendance and logs for this session
+          </p>
         </div>
 
-        {loading ? (
-          <p className="text-gray-400 italic animate-pulse">Loading summary...</p>
-        ) : recognizedStudents.length === 0 ? (
-          <div className="text-center py-6 text-gray-400 italic">
-            No attendance summary available for today.
-          </div>
-        ) : (
-          <ul className="divide-y divide-white/10 max-h-[450px] overflow-y-auto custom-scroll">
-            {recognizedStudents.map((s, idx) => (
-              <li
-                key={`${s.student_id}-${idx}`}
-                className="flex items-center justify-between py-3 px-3 hover:bg-white/5 rounded-lg transition-all duration-300"
-              >
-                <div>
-                  <p className="font-medium text-white">
-                    {formatName(s.first_name)} {formatName(s.last_name)}
-                  </p>
-                  <p className="text-xs text-gray-400">ID: {s.student_id}</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`px-3 py-1 text-xs font-semibold rounded-full shadow backdrop-blur-md border border-white/20
-                      ${
-                        s.status === "Present"
-                          ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white"
-                          : s.status === "Late"
-                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600 text-white"
-                          : s.status === "Excused"
-                          ? "bg-gradient-to-r from-blue-500 to-blue-700 text-white"
-                          : "bg-gradient-to-r from-red-500 to-red-700 text-white"
-                      }`}
-                  >
-                    {s.status}
-                  </span>
-
-                  {(s.status === "Absent" || s.status === "Late") && (
-                    <button
-                      onClick={() => openExcuseModal(s)}
-                      className="px-2 py-1 text-xs bg-blue-500/20 border border-blue-400 text-blue-300 rounded-lg hover:bg-blue-600/30 transition-all"
-                    >
-                      Mark Excused
-                    </button>
-                  )}
-
-                  <span className="text-sm text-gray-300 font-mono">
-                    {s.time || (s.status === "Absent" ? "—" : "N/A")}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+        {recognizedStudents.length > 0 && (
+          <button
+            onClick={exportToPDF}
+            className="inline-flex items-center justify-center gap-2 bg-[#0A3A23] hover:bg-[#0A3A23]/95 text-white text-xs font-extrabold uppercase tracking-widest px-6 py-4 rounded-xl transition-all duration-150 shadow-xs active:scale-[0.98]"
+          >
+            <Download size={15} strokeWidth={2.5} />
+            Export PDF Report
+          </button>
         )}
       </div>
 
-      {/* Excuse Modal */}
-      <ExcuseModal
-        isOpen={showExcuseModal}
-        onClose={() => setShowExcuseModal(false)}
-        student={selectedStudent}
-        classId={lastClass?.class_id || localStorage.getItem("lastClassId")}
-        instructorId={localStorage.getItem("instructorId")}
-        onExcuseMarked={handleExcuseMarked}
-      />
+      {loading ? (
+        <div className="text-center py-20 text-xs font-bold text-[#0A3A23]/40 uppercase tracking-widest animate-pulse">
+          Loading attendance records...
+        </div>
+      ) : recognizedStudents.length === 0 ? (
+        <div className="bg-[#F5F3F0] p-14 text-center rounded-[28px] border border-[#0A3A23]/5 text-xs font-bold text-[#0A3A23]/40 uppercase tracking-widest">
+          No attendance logs found for this session.
+        </div>
+      ) : (
+        <div className="space-y-8">
+          
+          {/* 📊 Section A: Enhanced Dashboard / Statistics Overview */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
+            
+            {/* Meta Stats Panel (Made wider to display the full subject title cleanly) */}
+            <div className="col-span-2 bg-[#0A3A23] text-white p-6 rounded-2xl flex flex-col justify-between shadow-sm min-h-[150px]">
+              <div className="flex items-center justify-between text-white/60">
+                <span className="text-[10px] font-black uppercase tracking-wider">Class Info</span>
+                <Clock size={18} />
+              </div>
+              <div className="mt-4 space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-base font-black tracking-wide shrink-0">{lastClass?.subject_code}</p>
+                  <span className="text-white/40 text-xs">—</span>
+                  <p className="text-xs text-white/90 font-bold truncate tracking-wide">{lastClass?.subject_title}</p>
+                </div>
+                <p className="text-xs text-white/95 font-semibold truncate">
+                  {lastClass ? `${lastClass.course} ${lastClass.section}` : ""}
+                </p>
+                <p className="text-[11px] text-white/70 font-medium truncate">
+                  S.Y {lastClass?.school_year} | {formatSemester(lastClass?.semester)}
+                </p>
+                {sessionStart && sessionEnd && (
+                  <p className="text-[10px] text-white/90 font-bold mt-2 bg-white/10 px-2 py-0.5 rounded inline-block tracking-wide">
+                    {convertTimeTo12Hour(sessionStart)} - {convertTimeTo12Hour(sessionEnd)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Total Students */}
+            <div className="bg-white border border-[#0A3A23]/10 p-6 md:p-7 rounded-2xl flex items-center gap-5 shadow-xs">
+              <div className="p-4 bg-[#F5F3F0] text-[#0A3A23] rounded-xl shrink-0">
+                <Users size={22} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">Total Students</p>
+                <p className="text-2xl md:text-3xl font-black text-[#0A3A23] mt-1 tracking-tight">{recognizedStudents.length}</p>
+              </div>
+            </div>
+
+            {/* Present Count */}
+            <div className="bg-white border border-[#0A3A23]/10 p-6 md:p-7 rounded-2xl flex items-center gap-5 shadow-xs">
+              <div className="p-4 bg-emerald-50 text-[#008C45] rounded-xl shrink-0">
+                <UserCheck size={22} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">Present</p>
+                <p className="text-2xl md:text-3xl font-black text-[#008C45] mt-1 tracking-tight">{presentCount}</p>
+              </div>
+            </div>
+
+            {/* Late Count */}
+            <div className="bg-white border border-[#0A3A23]/10 p-6 md:p-7 rounded-2xl flex items-center gap-5 shadow-xs">
+              <div className="p-4 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+                <Clock size={22} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">Late</p>
+                <p className="text-2xl md:text-3xl font-black text-amber-600 mt-1 tracking-tight">{lateCount}</p>
+              </div>
+            </div>
+
+            {/* Absent Count */}
+            <div className="bg-white border border-[#0A3A23]/10 p-6 md:p-7 rounded-2xl flex items-center gap-5 shadow-xs">
+              <div className="p-4 bg-red-50 text-[#950606] rounded-xl shrink-0">
+                <UserX size={22} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">Absent</p>
+                <p className="text-2xl md:text-3xl font-black text-[#950606] mt-1 tracking-tight">{absentCount}</p>
+              </div>
+            </div>
+
+          </div>
+
+          {/* 📋 Section B: Enhanced Student List View */}
+          <div className="bg-white border border-[#0A3A23]/5 rounded-[24px] shadow-sm overflow-hidden">
+            
+            {/* Search and Header Filters */}
+            <div className="p-6 px-7 border-b border-[#0A3A23]/5 bg-[#F5F3F0]/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="relative w-full sm:w-80">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-neutral-400 pointer-events-none">
+                    <Search size={15} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search student name or ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold bg-white border border-[#0A3A23]/10 rounded-xl focus:outline-none focus:border-[#0A3A23] text-[#0A3A23] transition-all placeholder:text-neutral-400"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 text-[11px] font-black text-neutral-400 uppercase tracking-wider">
+                <Calendar size={14} className="text-[#0A3A23]" />
+                <span>Date: {formatDate(new Date().toISOString())}</span>
+              </div>
+            </div>
+
+            {/* Enhanced Student Roster Rows */}
+            <div className="max-h-[520px] overflow-y-auto divide-y divide-[#0A3A23]/5 custom-scrollbar">
+              {filteredStudents.length === 0 ? (
+                <div className="p-16 text-center text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                  No student records found.
+                </div>
+              ) : (
+                filteredStudents.map((student, idx) => {
+                  let badgeColors = "bg-[#008C45] text-white";
+                  if (student.status === "Late") badgeColors = "bg-amber-500 text-white";
+                  if (student.status === "Absent") badgeColors = "bg-[#950606] text-white";
+                  if (student.status === "Excused") badgeColors = "bg-blue-600 text-white";
+
+                  return (
+                    <div 
+                      key={`${student.student_id}-${idx}`}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-5 px-7 hover:bg-[#F5F3F0]/25 transition-all duration-150 gap-5"
+                    >
+                      {/* Identity Column */}
+                      <div className="flex items-center gap-4 sm:w-2/5 min-w-0">
+                        <div className="h-10 w-10 bg-[#F5F3F0] rounded-xl border border-[#0A3A23]/5 flex items-center justify-center font-black text-xs text-[#0A3A23] shrink-0 shadow-2xs">
+                          {student.last_name.charAt(0)}
+                        </div>
+                        <div className="truncate">
+                          <h4 className="text-sm font-black text-[#0A3A23] uppercase tracking-wide truncate">
+                            {student.last_name}, {student.first_name}
+                          </h4>
+                          <p className="text-[11px] font-bold text-neutral-400 mt-0.5 tracking-wide">
+                            ID: {student.student_id}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Log Timestamp Column */}
+                      <div className="sm:w-1/4 flex flex-row sm:flex-col items-center sm:items-start justify-between sm:justify-center gap-2">
+                        <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest sm:hidden">Time:</span>
+                        <div className="flex items-center gap-2 text-xs font-bold text-[#0A3A23]/80 tracking-wide">
+                          <Clock size={14} className="text-neutral-400" />
+                          <span>{student.time}</span>
+                        </div>
+                      </div>
+
+                      {/* Action & Badge Column */}
+                      <div className="flex items-center justify-between sm:justify-end gap-3.5 sm:w-1/3 shrink-0">
+                        <span className={`text-[10px] font-black tracking-widest uppercase px-3.5 py-2 rounded-lg text-center min-w-[95px] shadow-2xs ${badgeColors}`}>
+                          {student.status}
+                        </span>
+
+                        {(student.status === "Absent" || student.status === "Late") && (
+                          <button
+                            onClick={() => handleOpenExcuseModal(student)} // 👈 Updated click handler
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-white hover:bg-[#0A3A23] text-[#0A3A23] hover:text-white border border-[#0A3A23]/10 rounded-lg transition-all shadow-2xs"
+                          >
+                            Excuse
+                            <ExternalLink size={12} strokeWidth={2.5} />
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

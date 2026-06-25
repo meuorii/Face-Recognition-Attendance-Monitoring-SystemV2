@@ -667,3 +667,41 @@ def get_live_attendance_session(class_id):
         import traceback
         print("Error in GET /session/<class_id>:", traceback.format_exc())
         return jsonify({"error": "Internal server error", "success": False}), 500
+
+@attendance_bp.route("/latest-session-log", methods=["GET"])
+def get_latest_session_log():
+    try:
+        class_id = request.args.get("class_id")
+        instructor_id = request.args.get("instructor_id")
+
+        if not class_id or not instructor_id:
+            return jsonify({"error": "Missing class_id or instructor_id parameters"}), 400
+
+        # Query logs matching the class and instructor, sorted by newest date and newest start_time
+        latest_log = attendance_collection.find_one(
+            {
+                "class_id": str(class_id),
+                "instructor_id": str(instructor_id)
+            },
+            sort=[("date", -1), ("start_time", -1)]
+        )
+
+        if not latest_log:
+            return jsonify({
+                "success": True,
+                "message": "No session logs found for this class and instructor.",
+                "log": None
+            }), 200
+
+        # Convert ObjectId to string for JSON serialization
+        latest_log["_id"] = str(latest_log["_id"])
+
+        return jsonify({
+            "success": True,
+            "log": latest_log
+        }), 200
+
+    except Exception:
+        import traceback
+        print("Error in /latest-session-log:", traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
