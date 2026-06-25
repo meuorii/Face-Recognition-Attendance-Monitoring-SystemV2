@@ -397,7 +397,6 @@ def multi_face_recognize():
 
         # 4. Tumawag sa AI Microservice para sa Pure Feature Extraction & Anti-Spoofing
         try:
-            # Pinapadala lang ang array ng base64 crops, walang dalang sensitibong DB records
             hf_res = requests.post(
                 f"{HF_AI_URL}/extract-features",
                 json={"faces": faces},
@@ -470,8 +469,9 @@ def multi_face_recognize():
         instructor_detected = SESSION_INSTRUCTOR_DETECTED[class_id]["detected"]
         results = []
         seen_user_ids = set()
+        latest_face_data = None
 
-        # 7. PROCESO NG LOCAL COSINE MATCHING AT BUSINESS LOGIC LOOP
+        # 7. PROCESO NG LOCAL COSINE MATCHING AT BUSINESS LOGIC LOOP (OPTIMIZED)
         for f_data in features:
             spoof_status = f_data.get("spoof_status")
             spoof_confidence = f_data.get("spoof_confidence")
@@ -479,8 +479,18 @@ def multi_face_recognize():
             spoof_prob = f_data.get("spoof_prob")
             raw_emb = f_data.get("embedding")
 
-            # Kung ang mukha ay na-intercept bilang Spoof, itapon na agad
+            # --- UPDATE: REJECT AND FLAG SPOOF ATTEMPTS ANONYMOUSLY ---
             if spoof_status == "Spoof":
+                spoof_payload = {
+                    "status": "Spoof Attempt",
+                    "time": now_readable,
+                    "spoof_status": "Spoof",
+                    "spoof_confidence": spoof_confidence,
+                    "real_prob": real_prob,
+                    "spoof_prob": spoof_prob,
+                    "match_score": 0.0
+                }
+                latest_face_data = spoof_payload
                 continue
 
             if not raw_emb:
@@ -501,6 +511,16 @@ def multi_face_recognize():
             # Strict Authentication Threshold Verification Pass
             threshold = 0.40 if user_type == "instructor" else 0.42
             if best_score < threshold:
+                unknown_payload = {
+                    "status": "Unknown Face",
+                    "time": now_readable,
+                    "match_score": round(best_score, 4),
+                    "spoof_status": spoof_status,
+                    "spoof_confidence": spoof_confidence,
+                    "real_prob": real_prob,
+                    "spoof_prob": spoof_prob
+                }
+                latest_face_data = unknown_payload
                 continue
 
             # Anti-Duplicate filtering sa kasalukuyang stream window frame
@@ -508,13 +528,32 @@ def multi_face_recognize():
                 continue
             seen_user_ids.add(user_id)
 
-            # --- CASE A: KUNG INSTRUCTOR ANG NAKITA ---
+            # --- CASE A: KUNG INSTRUCTOR ANG NAKITA (SHORT-CIRCUIT TIMING PASS) ---
             if user_type == "instructor" or str(user_id) == str(instructor_id):
-                SESSION_INSTRUCTOR_DETECTED[class_id] = {
-                    "log_id": str(log_id),
-                    "detected": True
+                instructor_payload = {
+                    "user_id": str(user_id),
+                    "first_name": cls.get("instructor_first_name"),
+                    "last_name": cls.get("instructor_last_name"),
+                    "status": "Instructor Present",
+                    "time": now_readable,
+                    "match_score": round(best_score, 4),
+                    "spoof_status": spoof_status,
+                    "spoof_confidence": spoof_confidence,
+                    "real_prob": real_prob,
+                    "spoof_prob": spoof_prob
                 }
-                instructor_detected = True
+                latest_face_data = instructor_payload
+                
+                if not instructor_detected:
+                    SESSION_INSTRUCTOR_DETECTED[class_id] = {
+                        "log_id": str(log_id),
+                        "detected": True
+                    }
+                    instructor_detected = True
+
+                # 🚀 SPEED BENCHMARK UPGRADE: Kung nahanap na si Instructor, i-bypass na agad ang loop execution
+                if len(features) == 1:
+                    break
                 continue
 
             # --- CASE B: KUNG ESTUDYANTE ANG NAKITA ---
@@ -530,7 +569,7 @@ def multi_face_recognize():
             # Subukan kung nasa memory cache na ang estudyante para iwas-DB lookup loop
             cache_entry = SESSION_LOGGED_STUDENTS[class_id].get(user_id)
             if cache_entry and cache_entry.get("log_id") == str(log_id):
-                results.append({
+                cached_payload = {
                     **student_data,
                     "status": cache_entry["status"],
                     "time": now_readable,
@@ -539,7 +578,9 @@ def multi_face_recognize():
                     "spoof_confidence": spoof_confidence,
                     "real_prob": real_prob,
                     "spoof_prob": spoof_prob
-                })
+                }
+                results.append(cached_payload)
+                latest_face_data = cached_payload
                 continue
 
             # Kung wala sa cache, silipin sa database kung nakalista na ito kanina
@@ -553,12 +594,14 @@ def multi_face_recognize():
                 SESSION_LOGGED_STUDENTS[class_id][user_id] = {
                     "status": status, "log_id": str(log_id)
                 }
-                results.append({
+                db_payload = {
                     **student_data, "status": status, "time": now_readable,
                     "match_score": round(best_score, 4),
                     "spoof_status": spoof_status, "spoof_confidence": spoof_confidence,
                     "real_prob": real_prob, "spoof_prob": spoof_prob
-                })
+                }
+                results.append(db_payload)
+                latest_face_data = db_payload
                 continue
 
             # Kalkulahin ang status (Late vs Present) kung bago pa lang itatala ang attendance nito
@@ -586,12 +629,14 @@ def multi_face_recognize():
             SESSION_LOGGED_STUDENTS[class_id][user_id] = {
                 "status": status, "log_id": str(log_id)
             }
-            results.append({
+            new_record_payload = {
                 **student_data, "status": status, "time": now_readable,
                 "match_score": round(best_score, 4),
                 "spoof_status": spoof_status, "spoof_confidence": spoof_confidence,
                 "real_prob": real_prob, "spoof_prob": spoof_prob
-            })
+            }
+            results.append(new_record_payload)
+            latest_face_data = new_record_payload
 
         duration = time.time() - start_time
         current_app.logger.info(
@@ -602,6 +647,7 @@ def multi_face_recognize():
             "success": True,
             "logged": results,
             "count": len(results),
+            "latest_face": latest_face_data,
             "instructor_detected": instructor_detected,
             "instructor_id": instructor_id,
             "instructor_first_name": cls.get("instructor_first_name"),

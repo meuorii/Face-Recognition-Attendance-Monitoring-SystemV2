@@ -613,3 +613,57 @@ def get_all_valid_sessions():
         import traceback
         print("Error in /sessions:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
+
+@attendance_bp.route("/session/<class_id>", methods=["GET"])
+def get_live_attendance_session(class_id):
+    try:
+        try:
+            class_oid = ObjectId(class_id)
+        except Exception:
+            return jsonify({"error": "Invalid class_id format", "success": False}), 400
+        cls = classes_collection.find_one({"_id": class_oid})
+        if not cls:
+            return jsonify({"error": "Class not found", "success": False}), 404
+        active_log_id = cls.get("active_session_log_id")
+        now = datetime.now(PH_TZ)
+        today_str = now.strftime("%Y-%m-%d")
+        log_doc = None
+        if active_log_id:
+            try:
+                log_doc = attendance_collection.find_one({"_id": ObjectId(str(active_log_id))})
+            except Exception:
+                pass
+
+        if not log_doc:
+            log_doc = attendance_collection.find_one(
+                {"class_id": str(class_id), "date": today_str},
+                sort=[("start_time", -1)] 
+            )
+
+        if not log_doc:
+            return jsonify({
+                "success": True,
+                "instructor_detected": False,
+                "logged": [],
+                "message": "No session log found for today"
+            }), 200
+
+        logged_students = log_doc.get("students", [])
+        instructor_detected_status = SESSION_INSTRUCTOR_DETECTED.get(str(class_id), False)
+
+        return jsonify({
+            "success": True,
+            "count": len(logged_students),
+            "instructor_detected": instructor_detected_status,
+            "instructor_id": log_doc.get("instructor_id", "Unknown"),
+            "instructor_first_name": log_doc.get("instructor_first_name", ""),
+            "instructor_last_name": log_doc.get("instructor_last_name", ""),
+            "subject_code": log_doc.get("subject_code", ""),
+            "subject_title": log_doc.get("subject_title", ""),
+            "logged": logged_students  
+        }), 200
+
+    except Exception:
+        import traceback
+        print("Error in GET /session/<class_id>:", traceback.format_exc())
+        return jsonify({"error": "Internal server error", "success": False}), 500
