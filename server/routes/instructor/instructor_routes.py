@@ -10,8 +10,7 @@ from models.instructor_model import (
     create_instructor
 )
 from models.class_model import get_all_classes_with_details
-
-instructor_bp = Blueprint("instructor", __name__)
+from . import instructor_bp
 
 students_collection = db["students"]
 classes_collection = db["classes"]
@@ -230,145 +229,145 @@ def attendance_report_all():
     return jsonify(results), 200
 
 #  Instructor Overview Endpoints
-@instructor_bp.route("/<string:instructor_id>/overview", methods=["GET"])
-@jwt_required()
-def instructor_overview(instructor_id):
-    try:
-        active = db["semesters"].find_one({"is_active": True})
-        if not active:
-            return jsonify({"error": "No active semester"}), 500
+# @instructor_bp.route("/<string:instructor_id>/overview", methods=["GET"])
+# @jwt_required()
+# def instructor_overview(instructor_id):
+#     try:
+#         active = db["semesters"].find_one({"is_active": True})
+#         if not active:
+#             return jsonify({"error": "No active semester"}), 500
 
-        sem_name = active["semester_name"]
-        sy = active["school_year"]
+#         sem_name = active["semester_name"]
+#         sy = active["school_year"]
 
-        classes = list(classes_collection.find({
-            "instructor_id": instructor_id,
-            "semester": sem_name,
-            "school_year": sy
-        }))
+#         classes = list(classes_collection.find({
+#             "instructor_id": instructor_id,
+#             "semester": sem_name,
+#             "school_year": sy
+#         }))
 
-        total_classes = len(classes)
-        total_students = sum(len(cls.get("students", [])) for cls in classes)
-        active_sessions = sum(1 for cls in classes if cls.get("is_attendance_active", False))
+#         total_classes = len(classes)
+#         total_students = sum(len(cls.get("students", [])) for cls in classes)
+#         active_sessions = sum(1 for cls in classes if cls.get("is_attendance_active", False))
 
-        # Attendance stats
-        class_ids = [str(cls["_id"]) for cls in classes]
-        pipeline = [
-            {"$match": {"class_id": {"$in": class_ids}}},
-            {"$unwind": "$students"},
-            {"$group": {
-                "_id": None,
-                "total_records": {"$sum": 1},
-                "present": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}},
-                "late": {"$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}},
-                "absent": {"$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}}
-            }}
-        ]
+#         # Attendance stats
+#         class_ids = [str(cls["_id"]) for cls in classes]
+#         pipeline = [
+#             {"$match": {"class_id": {"$in": class_ids}}},
+#             {"$unwind": "$students"},
+#             {"$group": {
+#                 "_id": None,
+#                 "total_records": {"$sum": 1},
+#                 "present": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}},
+#                 "late": {"$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}},
+#                 "absent": {"$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}}
+#             }}
+#         ]
 
-        agg = list(attendance_collection.aggregate(pipeline))
-        if agg:
-            total_records = agg[0]["total_records"]
-            present_count = agg[0]["present"]
-            late_count = agg[0]["late"]
-            absent_count = agg[0]["absent"]
-        else:
-            total_records = present_count = late_count = absent_count = 0
+#         agg = list(attendance_collection.aggregate(pipeline))
+#         if agg:
+#             total_records = agg[0]["total_records"]
+#             present_count = agg[0]["present"]
+#             late_count = agg[0]["late"]
+#             absent_count = agg[0]["absent"]
+#         else:
+#             total_records = present_count = late_count = absent_count = 0
 
-        attendance_rate = (
-            round(((present_count + late_count) / total_records) * 100, 2)
-            if total_records else 0
-        )
+#         attendance_rate = (
+#             round(((present_count + late_count) / total_records) * 100, 2)
+#             if total_records else 0
+#         )
 
-        return jsonify({
-            "totalClasses": total_classes,
-            "totalStudents": total_students,
-            "activeSessions": active_sessions,
-            "attendanceRate": attendance_rate,
-            "present": present_count,
-            "late": late_count,
-            "absent": absent_count,
-            "totalRecords": total_records
-        }), 200
+#         return jsonify({
+#             "totalClasses": total_classes,
+#             "totalStudents": total_students,
+#             "activeSessions": active_sessions,
+#             "attendanceRate": attendance_rate,
+#             "present": present_count,
+#             "late": late_count,
+#             "absent": absent_count,
+#             "totalRecords": total_records
+#         }), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
-# ✅ Attendance Trend (day-wise counts for Present, Late, Absent)
-@instructor_bp.route("/<string:instructor_id>/overview/attendance-trend", methods=["GET"])
-@jwt_required()
-def instructor_attendance_trend(instructor_id):
-    try:
-        pipeline = [
-            {"$match": {"instructor_id": instructor_id}},
-            {"$unwind": "$students"},
-            {"$group": {
-                "_id": "$date",  # group by date string (same as student)
-                "present": {
-                    "$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}
-                },
-                "late": {
-                    "$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}
-                },
-                "absent": {
-                    "$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}
-                }
-            }},
-            {"$sort": {"_id": 1}}
-        ]
+# # ✅ Attendance Trend (day-wise counts for Present, Late, Absent)
+# @instructor_bp.route("/<string:instructor_id>/overview/attendance-trend", methods=["GET"])
+# @jwt_required()
+# def instructor_attendance_trend(instructor_id):
+#     try:
+#         pipeline = [
+#             {"$match": {"instructor_id": instructor_id}},
+#             {"$unwind": "$students"},
+#             {"$group": {
+#                 "_id": "$date",  # group by date string (same as student)
+#                 "present": {
+#                     "$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}
+#                 },
+#                 "late": {
+#                     "$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}
+#                 },
+#                 "absent": {
+#                     "$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}
+#                 }
+#             }},
+#             {"$sort": {"_id": 1}}
+#         ]
 
-        trend = list(attendance_collection.aggregate(pipeline))
+#         trend = list(attendance_collection.aggregate(pipeline))
 
-        formatted = [
-            {
-                "date": t["_id"],  # keep same key as student
-                "present": t.get("present", 0),
-                "late": t.get("late", 0),
-                "absent": t.get("absent", 0)
-            }
-            for t in trend
-        ]
+#         formatted = [
+#             {
+#                 "date": t["_id"],  # keep same key as student
+#                 "present": t.get("present", 0),
+#                 "late": t.get("late", 0),
+#                 "absent": t.get("absent", 0)
+#             }
+#             for t in trend
+#         ]
 
-        return jsonify(formatted), 200
-    except Exception as e:
-        print(f"❌ Error in instructor_attendance_trend: {e}")
-        return jsonify({"error": str(e)}), 500
+#         return jsonify(formatted), 200
+#     except Exception as e:
+#         print(f"❌ Error in instructor_attendance_trend: {e}")
+#         return jsonify({"error": str(e)}), 500
 
-# ✅ Class Summary for Overview
-@instructor_bp.route("/<string:instructor_id>/overview/classes", methods=["GET"])
-@jwt_required()
-def instructor_class_summary(instructor_id):
-    try:
-        active = db["semesters"].find_one({"is_active": True})
-        if not active:
-            return jsonify([]), 200
+# # ✅ Class Summary for Overview
+# @instructor_bp.route("/<string:instructor_id>/overview/classes", methods=["GET"])
+# @jwt_required()
+# def instructor_class_summary(instructor_id):
+#     try:
+#         active = db["semesters"].find_one({"is_active": True})
+#         if not active:
+#             return jsonify([]), 200
 
-        sem_name = active["semester_name"]
-        sy = active["school_year"]
+#         sem_name = active["semester_name"]
+#         sy = active["school_year"]
 
-        classes = list(classes_collection.find({
-            "instructor_id": instructor_id,
-            "semester": sem_name,
-            "school_year": sy
-        }))
+#         classes = list(classes_collection.find({
+#             "instructor_id": instructor_id,
+#             "semester": sem_name,
+#             "school_year": sy
+#         }))
 
-        results = []
-        for cls in classes:
-            results.append({
-                "_id": str(cls["_id"]),
-                "subject_code": cls.get("subject_code"),
-                "subject_title": cls.get("subject_title"),
-                "course": cls.get("course"),
-                "year_level": cls.get("year_level"),
-                "semester": cls.get("semester"),
-                "section": cls.get("section"),
-                "schedule_blocks": cls.get("schedule_blocks", []),
-                "students_count": len(cls.get("students", [])),
-                "is_attendance_active": cls.get("is_attendance_active", False),
-            })
-        return jsonify(results), 200
+#         results = []
+#         for cls in classes:
+#             results.append({
+#                 "_id": str(cls["_id"]),
+#                 "subject_code": cls.get("subject_code"),
+#                 "subject_title": cls.get("subject_title"),
+#                 "course": cls.get("course"),
+#                 "year_level": cls.get("year_level"),
+#                 "semester": cls.get("semester"),
+#                 "section": cls.get("section"),
+#                 "schedule_blocks": cls.get("schedule_blocks", []),
+#                 "students_count": len(cls.get("students", [])),
+#                 "is_attendance_active": cls.get("is_attendance_active", False),
+#             })
+#         return jsonify(results), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
     
 @instructor_bp.route("/profile", methods=["GET"])
 @jwt_required() 

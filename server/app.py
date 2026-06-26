@@ -32,7 +32,7 @@ jwt = JWTManager(app)
 
 # Blueprints
 from routes.auth_routes import auth_bp
-from routes.instructor_routes import instructor_bp
+from routes.instructor import instructor_bp
 from routes.attendance_routes import attendance_bp
 from routes.face_routes import face_bp
 from routes.admin import admin_bp

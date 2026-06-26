@@ -188,7 +188,6 @@ export const getAttendanceReportByClass = async (id, from, to) => {
     { headers: { Authorization: `Bearer ${token}` } }
   );
 
-  // 🔹 Return records array directly
   return res.data.records || [];
 };
 
@@ -231,6 +230,59 @@ export const getAttendanceLogsByStudent = async (id) => {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.data;
+};
+
+//  Instructor Dashboard & Overview Metrics
+export const getAttendanceByYearLevel = async (instructorId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await API.get(`/instructor/${instructorId}/overview/attendance-by-subject`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("❌ Failed to fetch attendance by year level:", err);
+    throw err;
+  }
+};
+
+export const getInstructorOverviewStats = async (instructorId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await API.get(`/instructor/${instructorId}/overview`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("❌ Failed to fetch instructor overview stats:", err);
+    throw err;
+  }
+};
+
+export const getInstructorAttendanceTrend = async (instructorId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await API.get(`/instructor/${instructorId}/overview/attendance-trend`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("❌ Failed to fetch instructor attendance trend:", err);
+    throw err;
+  }
+};
+
+export const getClassMatrix = async (instructorId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await API.get(`/instructor/${instructorId}/classes-matrix`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("❌ Failed to fetch instructor class matrix:", err);
+    throw err;
+  }
 };
 
 

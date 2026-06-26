@@ -1,7 +1,12 @@
 // src/components/Instructor/InstructorOverview.jsx
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import axios from "axios";
+import { 
+  getInstructorOverviewStats, 
+  getInstructorAttendanceTrend, 
+  getAttendanceByYearLevel, 
+  getClassMatrix 
+} from "../../services/api"; 
 
 // Import ng mga modular sections natin
 import InstructorStatCards from "./Overview/InstructorStatCards";
@@ -11,14 +16,14 @@ import InstructorClassMatrix from "./Overview/InstructorClassMatrix";
 const InstructorOverview = ({ setActiveTab }) => {
   const [overviewData, setOverviewData] = useState(null);
   const [trendData, setTrendData] = useState([]);
+  const [yearLevelData, setYearLevelData] = useState([]);
   const [classSummary, setClassSummary] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const instructor = JSON.parse(localStorage.getItem("userData"));
-  const token = localStorage.getItem("token");
 
   useEffect(() => {
-    if (!instructor?.instructor_id || !token) {
+    if (!instructor?.instructor_id) {
       toast.error("Instructor not logged in.");
       return;
     }
@@ -26,21 +31,20 @@ const InstructorOverview = ({ setActiveTab }) => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const baseUrl = "http://127.0.0.1:8080/api/instructor";
-
-        // Tumawag sa tatlong endpoints nang sabay-sabay
-        const [overviewRes, trendRes, classRes] = await Promise.all([
-          axios.get(`${baseUrl}/${instructor.instructor_id}/overview`, { headers }),
-          axios.get(`${baseUrl}/${instructor.instructor_id}/overview/attendance-trend`, { headers }),
-          axios.get(`${baseUrl}/${instructor.instructor_id}/overview/classes`, { headers }),
+        // Sabay-sabay na tatawagin ang apat na endpoints gamit ang modular api functions
+        const [overviewRes, trendRes, yearLevelRes, classRes] = await Promise.all([
+          getInstructorOverviewStats(instructor.instructor_id),
+          getInstructorAttendanceTrend(instructor.instructor_id),
+          getAttendanceByYearLevel(instructor.instructor_id),
+          getClassMatrix(instructor.instructor_id)
         ]);
 
-        setOverviewData(overviewRes.data);
-        setTrendData(trendRes.data);
-        setClassSummary(classRes.data);
+        setOverviewData(overviewRes);
+        setTrendData(trendRes);
+        setYearLevelData(yearLevelRes);
+        setClassSummary(classRes);
       } catch (err) {
-        console.error("❌ Framework Error loading academic data:", err.response?.data || err.message);
+        console.error("❌ Framework Error loading academic data:", err);
         toast.error("Failed to compile institutional dashboard analytics.");
       } finally {
         setLoading(false);
@@ -64,7 +68,7 @@ const InstructorOverview = ({ setActiveTab }) => {
       <div className="text-center py-12 border-2 border-[#0A3A23]/10 p-6 max-w-md mx-auto rounded-2xl bg-[#0A3A23]/5">
         <p className="text-[#0A3A23] font-black">Data array connection lost.</p>
       </div>
-    );s
+    );
   }
 
   return (
@@ -79,14 +83,23 @@ const InstructorOverview = ({ setActiveTab }) => {
         </p>
       </div>
 
-      {/* MODULE 1: STAT CARDS SECTION */}
+      {/* ROW 1: 4 Mini Cards + Large Donut Card Block inside StatCards Component */}
       <InstructorStatCards overviewData={overviewData} setActiveTab={setActiveTab} />
 
-      {/* MODULE 2: INTERACTIVE RECHARTS VISUALIZATION */}
-      <InstructorCharts overviewData={overviewData} trendData={trendData} />
+      {/* ROW 2: Wide Area Graph + 4-Year Bar Chart via 2-Column Grid Wrapper */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+        <div className="lg:col-span-2">
+          <InstructorCharts mode="trend" trendData={trendData} />
+        </div>
+        <div>
+          <InstructorCharts mode="bar" yearLevelData={yearLevelData} />
+        </div>
+      </div>
 
-      {/* MODULE 3: DATA MATRIX WORKLOAD */}
-      <InstructorClassMatrix classSummary={classSummary} setActiveTab={setActiveTab} />
+      {/* ROW 3: Full-Width Class Matrix Table Workload */}
+      <div className="w-full">
+        <InstructorClassMatrix classSummary={classSummary} setActiveTab={setActiveTab} />
+      </div>
     </div>
   );
 };

@@ -52,7 +52,7 @@ const InstructorClassMatrix = ({ classSummary = [], setActiveTab }) => {
                   <div className="p-1.5 rounded-lg bg-white/10 border border-white/10 text-white backdrop-blur-md">
                     <Layers size={12} strokeWidth={2.5} />
                   </div>
-                  Section
+                  Section & Course
                 </div>
               </th>
               <th className="px-8 py-6">
@@ -90,28 +90,38 @@ const InstructorClassMatrix = ({ classSummary = [], setActiveTab }) => {
                   {/* Combined Subject Code and Title */}
                   <td className="px-8 py-6 max-w-[320px]">
                     <div className="space-y-1">
-                      <span className="block font-black text-[#0A3A23] group-hover:text-[#008C45] text-base tracking-tight transition-colors duration-300">
-                        {c.subject_code}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="block font-black text-[#0A3A23] group-hover:text-[#008C45] text-base tracking-tight transition-colors duration-300">
+                          {c.subject_code}
+                        </span>
+                        <span className="text-[10px] bg-[#0A3A23]/5 text-[#0A3A23]/60 px-2 py-0.5 rounded-md font-bold tracking-tight">
+                          {c.class_code}
+                        </span>
+                      </div>
                       <span className="block text-xs font-bold text-[#0A3A23]/50 truncate uppercase tracking-wide">
                         {c.subject_title}
                       </span>
                     </div>
                   </td>
                   
-                  {/* Premium White Badge Section column */}
+                  {/* Premium White Badge Section column for Course, Year & Section */}
                   <td className="px-8 py-6">
-                    <span className="inline-block px-4 py-2 text-xs font-black bg-[#F5F3F0] text-[#0A3A23] rounded-xl border border-[#0A3A23]/5 group-hover:bg-white group-hover:border-[#0A3A23]/10 transition-all shadow-sm">
-                      {c.section}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block px-4 py-2 text-xs font-black bg-[#F5F3F0] text-[#0A3A23] rounded-xl border border-[#0A3A23]/5 group-hover:bg-white group-hover:border-[#0A3A23]/10 transition-all shadow-sm">
+                        {c.year_level ? `${c.year_level.split(" ")[0]} - ${c.section}` : c.section}
+                      </span>
+                      <span className="text-[11px] font-bold text-[#0A3A23]/40 uppercase tracking-wider hidden lg:inline">
+                        {c.course}
+                      </span>
+                    </div>
                   </td>
 
-                  {/* Schedule Container Layer */}
+                  {/* Schedule Container Layer (In-sync with the new direct string format) */}
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2.5 bg-[#F5F3F0]/60 group-hover:bg-white px-3.5 py-2 rounded-xl border border-[#0A3A23]/5 w-fit shadow-inner transition-all">
                       <CalendarDays size={14} className="text-[#008C45]" />
                       <span className="text-[#0A3A23]/80 font-black text-xs uppercase tracking-wide">
-                        {c.schedule_blocks?.map((b) => `${b.days.join(", ")} • ${b.start}–${b.end}`).join(" | ") || "No Schedule"}
+                        {c.schedule || "No Schedule"}
                       </span>
                     </div>
                   </td>
@@ -149,7 +159,12 @@ const InstructorClassMatrix = ({ classSummary = [], setActiveTab }) => {
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-black text-lg text-[#0A3A23] tracking-tight">{c.subject_code}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-lg text-[#0A3A23] tracking-tight">{c.subject_code}</h4>
+                    <span className="text-[9px] bg-[#0A3A23]/5 text-[#0A3A23]/50 font-black px-2 py-0.5 rounded">
+                      {c.class_code}
+                    </span>
+                  </div>
                   <p className="text-xs text-[#0A3A23]/50 font-bold mt-0.5 truncate max-w-[200px] uppercase tracking-wide">{c.subject_title}</p>
                 </div>
                 <span className={`text-[9px] font-black tracking-widest px-3 py-1.5 rounded-xl uppercase ${c.is_attendance_active ? "bg-[#008C45] text-white animate-pulse" : "bg-[#0A3A23]/5 text-[#0A3A23]/40 border border-[#0A3A23]/5"}`}>
@@ -157,8 +172,8 @@ const InstructorClassMatrix = ({ classSummary = [], setActiveTab }) => {
                 </span>
               </div>
               <div className="text-xs text-[#0A3A23]/70 font-semibold space-y-2.5 pt-2 border-t border-[#0A3A23]/5">
-                <p className="flex items-center gap-2">Section: <span className="text-[#0A3A23] font-black bg-[#F5F3F0] px-2.5 py-1 rounded-lg border border-[#0A3A23]/5">{c.section}</span></p>
-                <p className="truncate text-[#0A3A23]/50">Schedule: <span className="text-[#0A3A23] font-bold">{c.schedule_blocks?.map((b) => `${b.days.join(", ")} • ${b.start}–${b.end}`).join(" | ") || "No Schedule"}</span></p>
+                <p className="flex items-center gap-2">Section: <span className="text-[#0A3A23] font-black bg-[#F5F3F0] px-2.5 py-1 rounded-lg border border-[#0A3A23]/5">{c.course} {c.year_level?.split(" ")[0]} - {c.section}</span></p>
+                <p className="truncate text-[#0A3A23]/50">Schedule: <span className="text-[#0A3A23] font-bold">{c.schedule || "No Schedule"}</span></p>
               </div>
             </div>
           ))
