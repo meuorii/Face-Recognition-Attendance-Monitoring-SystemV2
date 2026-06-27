@@ -42,104 +42,85 @@ def register_face_auto(data):
     try:
         student_id = data.get("student_id")
         base64_image = data.get("image")
-        angle_from_frontend = data.get("angle")
+        
+        # Kukunin ang anggulo mula sa frontend payload (default sa 'front' kung walang pinasa)
+        angle = str(data.get("angle", "front")).lower()
 
-        # --- Input validation ---
+        # --- 1. Payload Input Validation ---
         if not student_id or not base64_image:
-            return {"success": False, "error": "Missing student_id or image"}
+            logging.warning(f"Student registration failed: Missing student_id or image payload.")
+            return {"success": False, "error": "Missing student_id or image", "angle": angle}
 
         if not base64_image.startswith("data:image"):
-            return {"success": False, "error": "Invalid image format"}
+            logging.warning(f"[{student_id}] Registration failed: Invalid image string format.")
+            return {"success": False, "error": "Invalid image string format", "angle": angle}
 
-        # --- Decode image ---
+        # --- 2. Base64 Image Decoding ---
         try:
             img_bytes = base64.b64decode(base64_image.split(",")[1])
             img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
             if img is None:
-                return {"success": False, "error": "Image decoding failed"}
+                return {"success": False, "error": "Image decoding failed", "angle": angle}
         except Exception as e:
-            logging.warning(f"Base64 decoding error: {str(e)}")
-            return {"success": False, "error": "Invalid image format"}
+            logging.error(f"[{student_id}] Base64 decoding crash: {str(e)}")
+            return {"success": False, "error": "Invalid image format or corrupted data", "angle": angle}
 
-        # --- FaceMesh: detect face and get angle ---
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        results = face_mesh.process(rgb)
+        logging.info(f"[{student_id}] Extracting embedding for student angle: '{angle}'")
 
-        angle = (angle_from_frontend or "unknown").lower()
-
-        if results.multi_face_landmarks:
-            h, w = img.shape[:2]
-            landmarks = results.multi_face_landmarks[0].landmark
-            detected_angle = get_face_angle(landmarks, w, h).lower()
-            if angle == "unknown":
-                angle = detected_angle
-        elif not angle_from_frontend:
-            logging.warning(f"[{student_id}] No face detected by FaceMesh and no frontend angle provided.")
-            return {"success": False, "error": "No face detected", "angle": "unknown"}
-
-        logging.info(f"[{student_id}] Detected angle: {angle}")
-
-        # --- Per-angle image enhancement ---
-        if angle in ("down", "right"):
-            logging.info(f"[{student_id}] Enhancing image for {angle.upper()} angle...")
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(gray)
-            enhanced = cv2.convertScaleAbs(enhanced, alpha=1.3, beta=25)
-            img = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
-
-        # --- ArcFace model check ---
+        # --- 3. Core Model Safety Check ---
         if face_model is None:
-            logging.error("Face model is not initialized.")
-            return {"success": False, "error": "Face model not initialized"}
+            logging.error("ArcFace/iResNet model loader returned None.")
+            return {"success": False, "error": "Face model not initialized on AI service", "angle": angle}
 
-        # --- ArcFace: extract embedding ---
-        # Use original image for detection as it's more accurate than 112x112 resize
-        faces = face_model.get(img) 
-
-        # Fix 3: Return success=False on no detection — clear failure signal
+        # --- 4. ArcFace Embedding Extraction ---
+        faces = face_model.get(img)
+        
         if not faces:
-            logging.warning(f"[{student_id}] ArcFace found no faces for angle: {angle}. Image may be blurry or out of frame.")
+            logging.warning(f"[{student_id}] ArcFace model failed to locate any faces for angle: {angle}.")
             return {
-                "success": False,
-                "error": f"No face detected by model for angle: {angle}",
-                "angle": angle,
+                "success": False, 
+                "error": f"No face detected by AI model for angle: {angle}", 
+                "angle": angle
             }
 
         if not hasattr(faces[0], "embedding"):
-            logging.warning(f"[{student_id}] ArcFace returned no embedding for angle: {angle}.")
+            logging.warning(f"[{student_id}] Extracted face metadata contains no numerical vector arrays.")
             return {
-                "success": False,
-                "error": f"Could not extract embedding for angle: {angle}",
-                "angle": angle,
+                "success": False, 
+                "error": f"Could not extract face embedding grid for angle: {angle}", 
+                "angle": angle
             }
 
-        # --- Normalize embedding ---
+        # --- 5. Embedding Isolation & Vector Normalization ---
         embedding = np.array(faces[0].embedding, dtype=np.float32)
         norm = np.linalg.norm(embedding)
+        
         if norm == 0:
-            logging.warning(f"[{student_id}] Zero-norm embedding for angle: {angle}.")
+            logging.warning(f"[{student_id}] Mathematical anomaly: Zero-norm vector output.")
             return {
-                "success": False,
-                "error": f"Invalid embedding (zero norm) for angle: {angle}",
-                "angle": angle,
+                "success": False, 
+                "error": f"Invalid face embedding (zero norm) for angle: {angle}", 
+                "angle": angle
             }
 
+        # Safe unit-vector scaling (Normalization)
         embedding = embedding / norm
-        logging.info(f"[{student_id}] | Angle: {angle} | Embedding norm: {np.linalg.norm(embedding):.4f}")
+        logging.info(f"[{student_id}] Successfully extracted student vector embedding for angle: {angle}")
 
+        # --- 6. Standardized Payload Output ---
         return {
             "success": True,
-            "message": f"Face registered successfully for {student_id} (angle: {angle})",
             "student_id": student_id,
             "angle": angle,
-            "embeddings": {angle: embedding.tolist()},
+            "embeddings": {
+                angle: embedding.tolist()
+            },
             "created_at": datetime.utcnow().isoformat(),
         }
 
     except Exception as e:
-        logging.error(f"[register_face_auto] Exception for student_id={data.get('student_id')}: {str(e)}")
-        return {"success": False, "error": "Internal server error"}
+        logging.error(f"register_face_auto Critical Crash Exception: {str(e)}")
+        return {"success": False, "error": "Internal AI server error processing frame"}
 
 
 def register_instructor_face(data):
