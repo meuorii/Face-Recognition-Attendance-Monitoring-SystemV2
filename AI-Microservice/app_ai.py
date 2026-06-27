@@ -176,13 +176,24 @@ def antispoof():
 def register_auto_route():
     try:
         data = request.get_json(force=True, silent=True) or {}
-        print(f"/register-auto → student={data.get('student_id')}", flush=True)
+        student_id = data.get("student_id")
+        print(f"/register-auto → Initiating registration pipeline for student_id: {student_id}", flush=True)
+        
+
         result = register_face_auto(data)
-        print(f"/register-auto result → angle={result.get('angle', '?')} | success={result.get('success')}", flush=True)
+        
+        angle = result.get("angle", "unknown")
+        success = result.get("success", False)
+        print(f"/register-auto result → angle={angle} | success={success}", flush=True)
+        
+        if not success:
+            return jsonify(result), 400
+            
         return jsonify(result), 200
+        
     except Exception:
-        print("Error encountered in /register-auto process context:", traceback.format_exc(), flush=True)
-        return jsonify({"error": "Internal server error"}), 500
+        print("Fatal exception captured in /register-auto process context:", traceback.format_exc(), flush=True)
+        return jsonify({"success": False, "error": "Internal AI server error processing registration route"}), 500
     
 @app.post("/register-instructor")
 def register_instructor():
