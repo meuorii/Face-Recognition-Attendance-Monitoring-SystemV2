@@ -30,6 +30,9 @@ export default function InstructorRegisterFace({ setActiveTab }) {
 
   const currentAngleRef = useRef(null);
   const faceDetectedStateRef = useRef(false);
+  
+  // Track current detection coordinates globally for cropping
+  const currentDetectionRef = useRef(null);
 
   const [modelsReady, setModelsReady] = useState(false);
   const [angleStatus, setAngleStatus] = useState({});
@@ -187,6 +190,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     ctx.clearRect(0, 0, w, h);
 
     if (!detection) {
+      currentDetectionRef.current = null;
       lostFaceFramesRef.current++;
       if (lostFaceFramesRef.current >= 25) {
         stableAngleRef.current = null;
@@ -210,11 +214,15 @@ export default function InstructorRegisterFace({ setActiveTab }) {
       setFaceDetected(true);
     }
 
+    // Retain accurate tracking payload coordinates
+    currentDetectionRef.current = detection;
+
     const box = detection.detection.box;
     const squareSize = Math.max(box.width, box.height);
     const centerX = box.x + box.width / 2;
     const centerY = box.y + box.height / 2;
     
+    // UI rendering coordinates mapping for the mirrored presentation
     const squareX = w - (centerX + squareSize / 2);
     const squareY = centerY - squareSize / 2;
 
@@ -269,8 +277,8 @@ export default function InstructorRegisterFace({ setActiveTab }) {
   };
 
   const classifyAngle = (yaw, pitchRatio) => {
-    if (yaw > 20)           return "left";
-    if (yaw < -20)          return "right";
+    if (yaw > 20)          return "left";
+    if (yaw < -20)         return "right";
     if (pitchRatio < 0.55)  return "up";
     if (pitchRatio > 1.6)   return "down";
     return "front";
@@ -296,7 +304,10 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     if (!isCapturingRef.current) return;
 
     const image = captureImage();
-    if (!image) return;
+    if (!image) {
+      setSavedMessage("❌ Failed to isolate face boundaries.");
+      return;
+    }
 
     setSavedMessage(`📸 Saving ${detectedAngle.toUpperCase()} view...`);
 
@@ -350,15 +361,54 @@ export default function InstructorRegisterFace({ setActiveTab }) {
 
   const captureImage = () => {
     const video = videoRef.current;
-    if (!video) return null;
+    const detection = currentDetectionRef.current;
+    if (!video || !detection) return null;
+
+    // Get face dimensions raw values
+    const { x, y, width, height } = detection.detection.box;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    // Make target matrix perfectly square with dynamic margin adjustments (30% padding)
+    const squareSize = Math.max(width, height) * 1.3;
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    // Calculate crop parameters with frame clamping bounds checks
+    let cropX = centerX - squareSize / 2;
+    let cropY = centerY - squareSize / 2;
+
+    if (cropX < 0) cropX = 0;
+    if (cropY < 0) cropY = 0;
+    if (cropX + squareSize > videoWidth) cropX = videoWidth - squareSize;
+    if (cropY + squareSize > videoHeight) cropY = videoHeight - squareSize;
+
+    // Create target thumbnail matrix context (Standard optimized input dimensions: 200x200)
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = 200;
+    canvas.height = 200;
     const ctx = canvas.getContext("2d");
+
+    // Mirroring execution inversion correction layer for local image storage matrix context
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL("image/jpeg", 0.92);
+
+    // Calculate mirror relative crop offset point map for drawImage processing extraction
+    const mirroredCropX = videoWidth - (cropX + squareSize);
+
+    ctx.drawImage(
+      video,
+      mirroredCropX,   // Source X position
+      cropY,           // Source Y position
+      squareSize,      // Source width
+      squareSize,      // Source height
+      0,               // Destination X position
+      0,               // Destination Y position
+      canvas.width,    // Destination width
+      canvas.height    // Destination height
+    );
+
+    return canvas.toDataURL("image/jpeg", 0.95);
   };
 
   const handleStartCapture = () => {
@@ -393,7 +443,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
         </button>
       </div>
 
-      {/* WORKSPACE (Enlarged camera layout: 3 columns vs 1 column) */}
+      {/* WORKSPACE */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
         
         {/* CAMERA SCREEN WITH OVERLAYS */}
@@ -427,7 +477,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
             )}
           </div>
 
-          {/* BOTTOM PANEL OVERLAY: NO BG, CENTERED WITH 8PX (gap-2) GAP */}
+          {/* BOTTOM PANEL OVERLAY */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 w-auto justify-center">
             {REQUIRED_ANGLES.map((angle) => {
               const isDone = angleStatus[angle];
@@ -463,7 +513,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
           )}
         </div>
 
-        {/* SIDE PANEL (RIGHT PANEL - Compact 1 column setup) */}
+        {/* SIDE PANEL */}
         <div className="xl:col-span-1 border border-gray-200/80 rounded-3xl p-5 bg-white shadow-sm space-y-5 flex flex-col justify-between min-h-[550px]">
           
           <div className="space-y-5">
