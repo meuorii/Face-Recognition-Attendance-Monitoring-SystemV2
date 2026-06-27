@@ -226,18 +226,77 @@ def register_auto():
 def register_instructor():
     start_time = time.time()
     try:
-        data = request.get_json(silent=True) or {}
-        instructor_id = data.get("instructor_id")
+        # --- 1. Dual-Format Parser (JSON base64 or Form-Data file/text) ---
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            instructor_id = data.get("instructor_id")
+            base64_image = data.get("image")
+            angle = data.get("angle", "front")
+        else:
+            # Galing sa form-data fields
+            data = request.form.to_dict()
+            instructor_id = data.get("instructor_id")
+            angle = data.get("angle", "front")
+            base64_image = None
 
-        if not instructor_id or not data.get("image"):
+            # Siyasatin kung may in-upload na file sa ilalim ng 'image' key
+            if "image" in request.files:
+                file = request.files["image"]
+                if file.filename != "":
+                    # Basahin ang binary content ng file at i-convert sa base64 string
+                    file_bytes = file.read()
+                    encoded_string = base64.b64encode(file_bytes).decode("utf-8")
+                    
+                    # Tukuyin ang tamang mime-type base sa file extension para sa AI microservice split
+                    mime_type = "image/jpeg"
+                    if file.filename.lower().endswith(".png"):
+                        mime_type = "image/png"
+                        
+                    base64_image = f"data:{mime_type};base64,{encoded_string}"
+
+        # --- 2. Input Integrity Validation ---
+        if not instructor_id or not base64_image:
             return jsonify({
                 "success": False,
-                "error": "Missing instructor_id or image"
+                "error": "Missing instructor_id or image payload"
             }), 400
 
+        # --- NEW UPDATE: Existence Check for Instructor Account ---
+        # Hinahanap natin ang record gamit ang instructors_collection na dineclare mo sa taas
+        instructor_account = instructors_collection.find_one({"instructor_id": instructor_id})
+        
+        if not instructor_account:
+            current_app.logger.warning(f"❌ Registration rejected: Instructor ID {instructor_id} does not exist.")
+            return jsonify({
+                "success": False,
+                "error": f"Instructor account with ID '{instructor_id}' not found. Registration denied."
+            }), 404
+
+        # Kukunin natin ang official names mula sa database account para hindi ma-overwrite ng maling manual form input
+        first_name = instructor_account.get("First_Name") or instructor_account.get("first_name")
+        middle_name = instructor_account.get("Middle_Name") or instructor_account.get("middle_name")
+        last_name = instructor_account.get("Last_Name") or instructor_account.get("last_name")
+        suffix = instructor_account.get("Suffix") or instructor_account.get("suffix")
+
+        # --- 3. Forward Payload to AI-Microservice ---
+        ai_payload = {
+            "instructor_id": instructor_id,
+            "image": base64_image,
+            "angle": angle
+        }
+
         hf_start = time.time()
-        res = requests.post(f"{HF_AI_URL}/register-instructor", json=data, timeout=60)
+        res = requests.post(f"{HF_AI_URL}/register-instructor", json=ai_payload, timeout=60)
         hf_elapsed = time.time() - hf_start
+
+        # --- 4. Catch Face Extraction Failures (HTTP 400/422) ---
+        if res.status_code in (400, 422):
+            hf_result = res.json()
+            return jsonify({
+                "success": False,
+                "error": hf_result.get("error", "AI microservice validation failed"),
+                "angle": hf_result.get("angle", "unknown")
+            }), 400
 
         if res.status_code != 200:
             current_app.logger.warning(f"⚠️ HF service error {res.status_code}: {res.text}")
@@ -247,36 +306,27 @@ def register_instructor():
             }), res.status_code
 
         hf_result = res.json()
+        
         if not hf_result.get("success") or not hf_result.get("embeddings"):
-            warning_msg = (
-                hf_result.get("warning") or
-                hf_result.get("error") or
-                "No embeddings returned"
-            )
             return jsonify({
                 "success": False,
-                "warning": warning_msg,
+                "error": hf_result.get("error", "No embeddings returned"),
                 "angle": hf_result.get("angle", "unknown"),
-            }), 200
+            }), 400
 
-        normalized_embeddings = {}
-        for angle, vec in hf_result["embeddings"].items():
-            v = np.array(vec, dtype=np.float32)
-            norm = np.linalg.norm(v)
-            if norm > 0:
-                normalized_embeddings[angle] = (v / norm).tolist()
-
+        # --- 5. Database Field Structuring ---
         update_fields = {
             "instructor_id": instructor_id,
-            "First_Name": data.get("First_Name"),
-            "Middle_Name": data.get("Middle_Name"),
-            "Last_Name": data.get("Last_Name"),
-            "Suffix": data.get("Suffix"),
+            "First_Name": first_name,
+            "Middle_Name": middle_name,
+            "Last_Name": last_name,
+            "Suffix": suffix,
             "registered": True, 
-            "embeddings": normalized_embeddings,
+            "embeddings": hf_result["embeddings"], 
             "updated_at": datetime.utcnow(),
         }
 
+        # Sine-save gamit ang iyong original helper framework configuration
         save_face_data_for_instructor(instructor_id, update_fields)
 
         total_elapsed = time.time() - start_time
@@ -288,7 +338,7 @@ def register_instructor():
             "success": True,
             "instructor_id": instructor_id,
             "angle": hf_result.get("angle", "unknown"),
-            "message": "Registration successful and saved.",
+            "message": "Registration successful and structural data synchronized.",
         }), 200
 
     except requests.exceptions.Timeout:
@@ -305,7 +355,7 @@ def register_instructor():
             "success": False,
             "error": "Internal server error"
         }), 500
-
+    
 # MULTI-FACE ATTENDANCE
 @face_bp.route("/multi-recognize", methods=["POST"])
 def multi_face_recognize():

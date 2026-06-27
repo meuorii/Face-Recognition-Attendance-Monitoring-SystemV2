@@ -188,14 +188,24 @@ def register_auto_route():
 def register_instructor():
     try:
         data = request.get_json(silent=True) or {}
-        print(f"/register-instructor → instructor={data.get('instructor_id')}", flush=True)
+        instructor_id = data.get('instructor_id')
+        
+        print(f"/register-instructor → instructor={instructor_id}", flush=True)
         result = register_instructor_face(data)
+        
         print(f"/register-instructor result → angle={result.get('angle', '?')} | success={result.get('success')}", flush=True)
+        
+        if not result.get("success"):
+            return jsonify(result), 400
+
         return jsonify(result), 200
 
     except Exception as e:
         logging.error(f"/register-instructor processing crash exception: {traceback.format_exc()}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({
+            "success": False,
+            "error": "Internal server error"
+        }), 500
 
 @app.post("/recognize")
 def recognize_route():
