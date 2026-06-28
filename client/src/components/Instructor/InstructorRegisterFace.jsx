@@ -1,6 +1,14 @@
 // src/components/Instructor/InstructorRegisterFace.jsx
 import { useEffect, useRef, useState } from "react";
-import { FaSave, FaPlay, FaCheckCircle, FaIdCard, FaUser, FaEnvelope, FaVideo, FaCompass, FaArrowLeft, FaInfoCircle } from "react-icons/fa";
+import { FaSave, FaPlay, FaCheckCircle, FaIdCard, FaUser, FaEnvelope, FaVideo, FaCompass, FaArrowLeft } from "react-icons/fa";
+import { 
+  Camera, 
+  CheckCircle2, 
+  AlertTriangle, 
+  XCircle, 
+  Loader2, 
+  Fingerprint 
+} from "lucide-react";
 import { toast } from "react-toastify";
 import { registerInstructorFace, getInstructorProfile } from "../../services/api";
 import * as faceapi from "face-api.js";
@@ -8,6 +16,45 @@ import * as faceapi from "face-api.js";
 const REQUIRED_ANGLES = ["front", "left", "right", "up", "down"];
 const MODEL_URL = "/models";
 const MODEL_LOAD_TOAST_ID = "model-load";
+
+// Clean state messages configuration without structural text emojis
+const STATUS_CONFIGS = {
+  idle: {
+    text: "Ready to start. Click 'Start Capture' to begin.",
+    icon: Fingerprint,
+    styles: "bg-white border-gray-200 text-[#0A3A23]"
+  },
+  loading_fields: {
+    text: "Loading your profile details. Please wait...",
+    icon: Loader2,
+    styles: "bg-[#FDCC0D]/10 border-[#FDCC0D] text-gray-800 animate-pulse"
+  },
+  crop_error: {
+    text: "Can't see your face clearly. Please look straight at the camera.",
+    icon: XCircle,
+    styles: "bg-[#950606]/5 border-[#950606]/30 text-[#950606]"
+  },
+  saving: {
+    text: "Saving your photo. Hold still...",
+    icon: Loader2,
+    styles: "bg-[#008C45]/5 border-[#008C45]/30 text-[#0A3A23]"
+  },
+  saved: {
+    text: "Photo saved successfully!",
+    icon: CheckCircle2,
+    styles: "bg-[#008C45]/10 border-[#008C45] text-[#008C45]"
+  },
+  complete: {
+    text: "All done! Going back to your profile now...",
+    icon: CheckCircle2,
+    styles: "bg-[#0A3A23] border-[#0A3A23] text-[#F5F3F0] shadow-md"
+  },
+  error: {
+    text: "Connection error. Failed to upload your photo.",
+    icon: AlertTriangle,
+    styles: "bg-[#950606]/10 border-[#950606] text-[#950606]"
+  }
+};
 
 export default function InstructorRegisterFace({ setActiveTab }) {
   const videoRef = useRef(null);
@@ -40,7 +87,10 @@ export default function InstructorRegisterFace({ setActiveTab }) {
   const [currentAngle, setCurrentAngle] = useState(null);
   const [targetAngle, setTargetAngle] = useState(REQUIRED_ANGLES[0]);
   const [allDone, setAllDone] = useState(false);
-  const [savedMessage, setSavedMessage] = useState("");
+  
+  // Track continuous luxury status state identifier mapping
+  const [statusKey, setStatusKey] = useState("idle");
+  const [dynamicDetail, setDynamicDetail] = useState("");
 
   const [formData, setFormData] = useState({
     Instructor_ID: "",
@@ -295,18 +345,19 @@ export default function InstructorRegisterFace({ setActiveTab }) {
       (key) => String(formDataRef.current[key]).trim() !== ""
     );
     if (!formReady) {
-      setSavedMessage("⚠️ Profile fields are still loading.");
+      setStatusKey("loading_fields");
       return;
     }
     if (!isCapturingRef.current) return;
 
     const image = captureImage();
     if (!image) {
-      setSavedMessage("❌ Failed to isolate face boundaries.");
+      setStatusKey("crop_error");
       return;
     }
 
-    setSavedMessage(`📸 Saving ${detectedAngle.toUpperCase()} view...`);
+    setStatusKey("saving");
+    setDynamicDetail(detectedAngle.toUpperCase());
 
     try {
       const payload = {
@@ -336,23 +387,24 @@ export default function InstructorRegisterFace({ setActiveTab }) {
           return updated;
         });
 
-        setSavedMessage(`✅ ${detectedAngle.toUpperCase()} saved!`);
+        setStatusKey("saved");
+        setDynamicDetail(detectedAngle.toUpperCase());
 
         if (isLast) {
           setAllDone(true);
-          setSavedMessage("🎉 Registration complete!");
+          setStatusKey("complete");
           setTimeout(() => {
             if (setActiveTab) setActiveTab("profile");
-          }, 2000);
+          }, 2500);
         } else {
           setTimeout(() => {
-            setSavedMessage("");
+            setStatusKey("idle");
           }, 2000);
         }
       }
     } catch (err) {
       console.error(err);
-      setSavedMessage("❌ Failed to upload photo.");
+      setStatusKey("error");
     }
   };
 
@@ -416,13 +468,15 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     }
     setIsCapturing(true);
     isCapturingRef.current = true;
-    setSavedMessage("");
+    setStatusKey("idle");
   };
 
   const progressPercent = (Object.keys(angleStatus).length / REQUIRED_ANGLES.length) * 100;
+  const currentStatus = STATUS_CONFIGS[statusKey] || STATUS_CONFIGS.idle;
+  const StatusIconComponent = currentStatus.icon;
 
   return (
-    <div className="space-y-6 px-4 text-gray-800">
+    <div className="space-y-12 px-4 text-gray-800">
       {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -444,7 +498,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
       {/* WIREFRAME GRID REPLICATION LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
         
-        {/* LEFT COMPONENT: MAIN CAMERA SCREEN (Occupies 3 Columns) */}
+        {/* LEFT COMPONENT: MAIN CAMERA SCREEN */}
         <div className="lg:col-span-3 relative border border-gray-200/80 bg-white rounded-[2rem] overflow-hidden min-h-[580px] flex items-center justify-center shadow-xl shadow-gray-100">
           <video
             ref={videoRef}
@@ -459,7 +513,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
             className="absolute inset-0 w-full h-full pointer-events-none z-10"
           />
 
-          {/* TOP LEFT PANEL: FACE ANGLE DIRECTION SPECIFIED FROM DRAWING */}
+          {/* TOP LEFT PANEL: FACE ANGLE DIRECTION */}
           <div className="absolute top-6 left-6 z-20 flex flex-col gap-2 items-start">
             <div className="px-5 py-3 rounded-2xl bg-white/90 backdrop-blur-md border border-gray-200/60 text-gray-800 flex flex-col gap-1 min-w-[200px] shadow-sm">
               <span className="text-[10px] uppercase font-black tracking-widest text-gray-400">Face Angle Direction</span>
@@ -485,41 +539,97 @@ export default function InstructorRegisterFace({ setActiveTab }) {
           )}
         </div>
 
-        {/* RIGHT COLUMN SIDEBAR PANELS (Stacked exactly like the updated diagram) */}
+        {/* RIGHT COLUMN SIDEBAR PANELS */}
         <div className="lg:col-span-1 flex flex-col gap-4 h-full">
           
-          {/* BOX 1: STATUS ANGLE SAVED INDICATION */}
-          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-4 flex flex-col justify-center min-h-[75px] shadow-sm">
-            <span className="text-[10px] font-black tracking-wider text-gray-400 uppercase mb-1 block">
-              Status Angle Saved Indication
-            </span>
-            {savedMessage ? (
-              <div className="text-xs font-bold text-gray-800 flex items-center gap-2 animate-pulse">
-                <FaInfoCircle className="text-[#008C45] shrink-0" />
-                <span className="break-words w-full">{savedMessage}</span>
+          {/* PREMIUM RE-ENGINEERED DYNAMIC STATUS BLOCK */}
+          <div className={`relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between min-h-[90px] shadow-sm backdrop-blur-md transition-all duration-500 ease-out ${currentStatus.styles}`}>
+            
+            {/* Left Section: Icon & Content */}
+            <div className="flex items-center gap-4">
+              <div className="shrink-0 w-11 h-11 rounded-xl bg-white/60 dark:bg-black/10 border border-white/40 flex items-center justify-center shadow-sm">
+                <StatusIconComponent className={`w-5 h-5 ${statusKey === "saving" || statusKey === "loading_fields" ? "animate-spin" : ""}`} />
               </div>
-            ) : (
-              <span className="text-xs text-gray-400 font-medium italic">Awaiting Capture Action...</span>
+
+              {/* Text Layout */}
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-bold tracking-widest uppercase opacity-60">
+                  System Status
+                </span>
+                <p className="text-xs font-semibold tracking-wide leading-snug">
+                  {currentStatus.text}
+                </p>
+              </div>
+            </div>
+
+            {/* Right Section: Premium Context Tag */}
+            {dynamicDetail && (statusKey === "saved" || statusKey === "saving") && (
+              <div className="shrink-0 self-center pl-4 border-l border-current/10 hidden sm:block">
+                <div className="px-2.5 py-1 rounded-md bg-white/40 border border-white/30 text-[10px] font-black tracking-wider uppercase shadow-2xs">
+                  {dynamicDetail}
+                    <span className="text-[9px] block font-medium tracking-normal opacity-70 lowercase">
+                      angle focus
+                    </span>
+                </div>
+              </div>
             )}
           </div>
 
-          {/* BOX 2: INSTRUCTOR INFORMATION */}
-          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-5 flex-grow flex flex-col min-h-[240px] shadow-sm">
-            <span className="text-[11px] font-black tracking-wider text-gray-500 uppercase block border-b border-gray-100 pb-2 mb-4">
-              Instructor Information
-            </span>
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
-                <FaIdCard className="text-gray-400 shrink-0" />
-                <span className="font-mono font-bold text-gray-700">{formData.Instructor_ID || "---"}</span>
+          {/* PREMIUM RE-ENGINEERED INSTRUCTOR PROFILE CARD */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 flex-grow flex flex-col min-h-[240px] shadow-sm relative overflow-hidden">
+            
+            {/* Modernized Header Group */}
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">
+                  Account Profile
+                </span>
+                <h4 className="text-xs font-bold text-[#0A3A23]">
+                  Instructor Details
+                </h4>
               </div>
-              <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
-                <FaUser className="text-gray-400 shrink-0" />
-                <span className="font-semibold text-gray-700">{formData.First_Name} {formData.Last_Name}</span>
+            </div>
+
+            {/* Clean, Multi-layer Data Grid */}
+            <div className="space-y-3.5 flex-grow flex flex-col justify-center">
+              
+              {/* Row 1: Instructor ID */}
+              <div className="flex items-center gap-3.5 p-2 rounded-xl hover:bg-[#F5F3F0]/50 transition-colors duration-200">
+                <div className="w-8 h-8 rounded-lg bg-[#F5F3F0] border border-gray-200/60 flex items-center justify-center text-[#0A3A23] shrink-0 shadow-3xs">
+                  <FaIdCard className="text-xs" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Instructor ID</span>
+                  <span className="text-xs  font-bold text-[#0A3A23] truncate">
+                    {formData.Instructor_ID || "---"}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100 truncate">
-                <FaEnvelope className="text-gray-400 shrink-0" />
-                <span className="font-medium text-gray-600 truncate">{formData.Email}</span>
+
+              {/* Row 2: Full Name */}
+              <div className="flex items-center gap-3.5 p-2 rounded-xl hover:bg-[#F5F3F0]/50 transition-colors duration-200">
+                <div className="w-8 h-8 rounded-lg bg-[#F5F3F0] border border-gray-200/60 flex items-center justify-center text-[#0A3A23] shrink-0 shadow-3xs">
+                  <FaUser className="text-xs" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Full Name</span>
+                  <span className="text-xs font-semibold text-gray-800 truncate">
+                    {formData.First_Name} {formData.Last_Name}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 3: Email Address */}
+              <div className="flex items-center gap-3.5 p-2 rounded-xl hover:bg-[#F5F3F0]/50 transition-colors duration-200">
+                <div className="w-8 h-8 rounded-lg bg-[#F5F3F0] border border-gray-200/60 flex items-center justify-center text-[#0A3A23] shrink-0 shadow-3xs">
+                  <FaEnvelope className="text-xs" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Email Address</span>
+                  <span className="text-xs font-medium text-gray-600 truncate">
+                    {formData.Email}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
