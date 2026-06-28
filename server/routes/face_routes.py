@@ -126,52 +126,84 @@ def get_student_cached(user_id):
 def register_auto():
     start_time = time.time()
     try:
-        data = request.get_json(silent=True) or {}
-        student_id = data.get("student_id")
+        # --- 1. Dual-Format Parsing Layer (JSON vs Form-Data for Postman) ---
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            base64_image = data.get("image")
+        else:
+            # Kinukuha ang text data mula sa form-data fields
+            data = request.form.to_dict()
+            base64_image = None
+            
+            # Kung may pinasang actual image file sa Postman form-data
+            if "image" in request.files:
+                file = request.files["image"]
+                if file.filename != "":
+                    file_bytes = file.read()
+                    encoded_str = base64.b64encode(file_bytes).decode("utf-8")
+                    # I-standardize bilang data URI structure para sa AI microservice consistency
+                    base64_image = f"data:image/jpeg;base64,{encoded_str}"
 
-        if not student_id or not data.get("image"):
+        student_id = data.get("student_id")
+        angle = str(data.get("angle", "front")).lower()
+
+        # --- 2. Input Integrity Checks ---
+        if not student_id or not base64_image:
             return jsonify({
                 "success": False,
-                "error": "Missing student_id or image"
+                "error": "Missing required fields: student_id or image data file block"
             }), 400
 
+        # I-normalize at i-prepare ang data object payload
         course = (data.get("Course") or data.get("course") or "").strip().upper() or "UNKNOWN"
-        data["course"] = course
-        current_app.logger.info(f"Preserved course for {student_id}: {course}")
+        
+        # Pag-isahin ang payload block na ipapasa natin sa AI Microservice
+        ai_payload = {
+            "student_id": student_id,
+            "image": base64_image,
+            "angle": angle
+        }
 
+        current_app.logger.info(f"Forwarding student registration payload to AI microservice for {student_id} ({course}) | Target Angle: {angle}")
+
+        # --- 3. Forward to Optimized AI Microservice ---
         hf_start = time.time()
-        res = requests.post(f"{HF_AI_URL}/register-auto", json=data, timeout=60)
+        res = requests.post(f"{HF_AI_URL}/register-auto", json=ai_payload, timeout=60)
         hf_elapsed = time.time() - hf_start
 
-        if res.status_code != 200:
-            current_app.logger.warning(f"HF service error {res.status_code}: {res.text}")
+        # Saluhin kapag nag-drop o nag-crash ang microservice connection layer (Non-200 / Non-400 structural failures)
+        if res.status_code not in (200, 400):
+            current_app.logger.warning(f"AI Service communication error. HTTP {res.status_code}: {res.text}")
             return jsonify({
                 "success": False,
-                "error": "Hugging Face service error"
+                "error": "AI microservice pipeline communication structural failure"
             }), res.status_code
 
         hf_result = res.json()
 
-        if not hf_result.get("success"):
-            error_msg = hf_result.get("error") or hf_result.get("warning") or "No embeddings returned"
-            current_app.logger.warning(f"HF returned failure for {student_id}: {error_msg}")
+        # --- 4. Handle Microservice Validation / Extraction Rejection (HTTP 400 or success=False) ---
+        if res.status_code == 400 or not hf_result.get("success"):
+            error_msg = hf_result.get("error") or "Failed to extract premium face embedding map references"
+            current_app.logger.warning(f"AI Microservice rejected extraction for student {student_id}: {error_msg}")
             return jsonify({
                 "success": False,
                 "error": error_msg,
-                "angle": hf_result.get("angle", "unknown"),
-            }), 200
+                "angle": hf_result.get("angle", angle),
+            }), 400  # Ibabalik natin sa client/Postman bilang 400 Bad Request
 
-        angle = hf_result.get("angle", "unknown")
+        returned_angle = hf_result.get("angle", angle)
         embeddings = hf_result.get("embeddings", {})
 
-        if not embeddings or angle not in embeddings:
+        if not embeddings or returned_angle not in embeddings:
             return jsonify({
                 "success": False,
-                "error": f"No embedding returned for angle: {angle}",
-                "angle": angle,
-            }), 200
+                "error": f"No structural vector sequence returned for target perspective position angle view: {returned_angle}",
+                "angle": returned_angle,
+            }), 400
 
-        embedding_for_angle = embeddings[angle]
+        embedding_for_angle = embeddings[returned_angle]
+
+        # --- 5. Atomic Upsert and Merge Vector Strategy (MongoDB Layer) ---
         students_collection.find_one_and_update(
             {"student_id": student_id},
             {
@@ -180,13 +212,13 @@ def register_auto():
                 },
                 "$set": {
                     "student_id": student_id,
-                    "First_Name": data.get("First_Name"),
-                    "Middle_Name": data.get("Middle_Name"),
-                    "Last_Name": data.get("Last_Name"),
-                    "Suffix": data.get("Suffix"),
+                    "First_Name": data.get("First_Name") or data.get("first_name"),
+                    "Middle_Name": data.get("Middle_Name") or data.get("middle_name"),
+                    "Last_Name": data.get("Last_Name") or data.get("last_name"),
+                    "Suffix": data.get("Suffix") or data.get("suffix"),
                     "Course": course,
                     "registered": True,
-                    f"embeddings.{angle}": embedding_for_angle,  # merge per angle, not full overwrite
+                    f"embeddings.{returned_angle}": embedding_for_angle,  # Isolated single-angle path safe injection array
                     "updated_at": datetime.utcnow(),
                 }
             },
@@ -195,31 +227,31 @@ def register_auto():
 
         total_elapsed = time.time() - start_time
         current_app.logger.info(
-            f"/register-auto {student_id} | angle={angle} | done in {total_elapsed:.2f}s (HF={hf_elapsed:.2f}s)"
+            f"Successfully logged vector layout database matrix for student: {student_id} | Done in {total_elapsed:.2f}s (AI Process Core={hf_elapsed:.2f}s)"
         )
 
         return jsonify({
             "success": True,
             "student_id": student_id,
             "Course": course,
-            "angle": angle,
-            "message": f"Face registered successfully for angle: {angle}",
+            "angle": returned_angle,
+            "message": f"Biometric tracking registration schema successfully saved for angle view: {returned_angle}",
         }), 200
 
     except requests.exceptions.Timeout:
-        current_app.logger.error(f"/register-auto timeout for student_id={data.get('student_id')}")
+        current_app.logger.error(f"Network timeout threshold exceeded on registration connection bridge context pipeline for student_id={student_id}")
         return jsonify({
             "success": False,
-            "error": "AI service timeout"
+            "error": "The background AI feature processing system engine timed out"
         }), 504
 
     except Exception as e:
         current_app.logger.error(
-            f"/register-auto error: {str(e)}\n{traceback.format_exc()}"
+            f"Fatal transaction pipeline mapping architecture exception in /register-auto core route loop: {str(e)}\n{traceback.format_exc()}"
         )
         return jsonify({
             "success": False,
-            "error": "Internal server error"
+            "error": "Internal database or tracking server runtime framework transaction layout error"
         }), 500
 
 @face_bp.route("/register-instructor", methods=["POST"])
