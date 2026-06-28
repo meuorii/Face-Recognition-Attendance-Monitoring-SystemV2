@@ -7,7 +7,6 @@ import * as faceapi from "face-api.js";
 
 const REQUIRED_ANGLES = ["front", "left", "right", "up", "down"];
 const MODEL_URL = "/models";
-const CAPTURE_TOAST_ID = "capture-toast";
 const MODEL_LOAD_TOAST_ID = "model-load";
 
 export default function InstructorRegisterFace({ setActiveTab }) {
@@ -214,7 +213,6 @@ export default function InstructorRegisterFace({ setActiveTab }) {
       setFaceDetected(true);
     }
 
-    // Retain accurate tracking payload coordinates
     currentDetectionRef.current = detection;
 
     const box = detection.detection.box;
@@ -222,7 +220,6 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     const centerX = box.x + box.width / 2;
     const centerY = box.y + box.height / 2;
     
-    // UI rendering coordinates mapping for the mirrored presentation
     const squareX = w - (centerX + squareSize / 2);
     const squareY = centerY - squareSize / 2;
 
@@ -372,7 +369,6 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     const centerX = x + width / 2;
     const centerY = y + height / 2;
 
-
     let cropX = centerX - squareSize / 2;
     let cropY = centerY - squareSize / 2;
 
@@ -386,7 +382,6 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     canvas.height = 200;
     const ctx = canvas.getContext("2d");
 
-  
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
 
@@ -427,7 +422,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
   const progressPercent = (Object.keys(angleStatus).length / REQUIRED_ANGLES.length) * 100;
 
   return (
-    <div className="space-y-12 px-4 text-gray-800">
+    <div className="space-y-6 px-4 text-gray-800">
       {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -440,17 +435,17 @@ export default function InstructorRegisterFace({ setActiveTab }) {
         </div>
         <button
           onClick={() => { if (setActiveTab) setActiveTab("profile"); }}
-          className="px-4 py-2 border border-[#0A3A23]/20 hover:bg-white rounded-xl text-xs font-bold text-[#0A3A23] flex items-center gap-2 transition-all shadow-sm"
+          className="px-4 py-2 border border-[#0A3A23]/20 hover:bg-gray-50 rounded-xl text-xs font-bold text-[#0A3A23] flex items-center gap-2 transition-all shadow-sm bg-white"
         >
           <FaArrowLeft className="text-[10px]" /> Exit to Profile
         </button>
       </div>
 
-      {/* WORKSPACE */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
+      {/* WIREFRAME GRID REPLICATION LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
         
-        {/* CAMERA SCREEN WITH OVERLAYS */}
-        <div className="xl:col-span-3 relative border border-gray-200/80 rounded-3xl overflow-hidden bg-white shadow-xl shadow-[#0A3A23]/5 aspect-video w-full flex items-center justify-center min-h-[550px]">
+        {/* LEFT COMPONENT: MAIN CAMERA SCREEN (Occupies 3 Columns) */}
+        <div className="lg:col-span-3 relative border border-gray-200/80 bg-white rounded-[2rem] overflow-hidden min-h-[550px] flex items-center justify-center shadow-xl shadow-gray-100">
           <video
             ref={videoRef}
             autoPlay
@@ -464,140 +459,139 @@ export default function InstructorRegisterFace({ setActiveTab }) {
             className="absolute inset-0 w-full h-full pointer-events-none z-10"
           />
 
-          {/* TOP PANEL: DIRECTIONS */}
-          <div className="absolute top-6 left-6 z-20 flex flex-col gap-2.5 items-start">
+          {/* TOP LEFT PANEL: FACE ANGLE DIRECTION SPECIFIED FROM DRAWING */}
+          <div className="absolute top-6 left-6 z-20 flex flex-col gap-2 items-start">
+            <div className="px-5 py-3 rounded-2xl bg-white/90 backdrop-blur-md border border-gray-200/60 text-gray-800 flex flex-col gap-1 min-w-[200px] shadow-sm">
+              <span className="text-[10px] uppercase font-black tracking-widest text-gray-400">Face Angle Direction</span>
+              <span className="text-sm font-bold text-[#0A3A23] flex items-center gap-2">
+                <FaCompass className="text-[#008C45] text-xs" />
+                {currentAngle ? currentAngle.toUpperCase() : "Detecting..."}
+              </span>
+            </div>
+
             {isCapturing && !angleStatus[targetAngle] && (
               <span className="px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase bg-[#0A3A23] text-white shadow-lg border border-[#008C45]/30 flex items-center gap-2 animate-bounce whitespace-nowrap">
                 <FaVideo className="text-[#008C45] animate-pulse" />
                 Turn to: {targetAngle}
               </span>
             )}
-            {faceDetected && currentAngle && (
-              <span className="px-4 py-2 rounded-xl text-xs font-bold tracking-wide uppercase bg-white/90 backdrop-blur text-gray-800 shadow-md border border-gray-200/50 flex items-center gap-2 whitespace-nowrap">
-                <FaCompass className="text-[#008C45]" />
-                Position: {currentAngle}
-              </span>
-            )}
-          </div>
-
-          {/* BOTTOM PANEL OVERLAY */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 w-auto justify-center">
-            {REQUIRED_ANGLES.map((angle) => {
-              const isDone = angleStatus[angle];
-              const isCurrentTarget = angle === targetAngle && isCapturing;
-              
-              return (
-                <div key={angle} className="flex flex-col items-center gap-1 w-16 bg-black/50 backdrop-blur-sm p-2 rounded-xl border border-white/10">
-                  <span className={`text-[9px] font-black uppercase tracking-wider ${
-                    isDone ? "text-[#008C45]" : isCurrentTarget ? "text-[#FDCC0D]" : "text-gray-300"
-                  }`}>
-                    {angle}
-                  </span>
-                  
-                  <div className={`flex items-center justify-center w-6 h-6 rounded-md font-bold text-xs border transition-all ${
-                    isDone 
-                      ? "bg-[#008C45] border-[#008C45] text-white" 
-                      : isCurrentTarget
-                      ? "bg-[#FDCC0D]/30 border-[#FDCC0D] text-[#FDCC0D] animate-pulse"
-                      : "bg-white/10 border-white/20 text-gray-400"
-                  }`}>
-                    {isDone ? <FaCheckCircle className="text-[10px]" /> : <span className="font-mono text-[10px]">-</span>}
-                  </div>
-                </div>
-              );
-            })}
           </div>
 
           {!modelsReady && (
-            <div className="absolute inset-0 z-30 bg-[#F5F3F0] flex flex-col items-center justify-center gap-3">
+            <div className="absolute inset-0 z-30 bg-white flex flex-col items-center justify-center gap-3 rounded-[2rem]">
               <div className="w-10 h-10 border-4 border-[#008C45]/20 border-t-[#008C45] rounded-full animate-spin" />
               <p className="text-[#0A3A23] text-xs font-bold tracking-wider">Starting system views...</p>
             </div>
           )}
         </div>
 
-        {/* SIDE PANEL */}
-        <div className="xl:col-span-1 border border-gray-200/80 rounded-3xl p-5 bg-white shadow-sm space-y-5 flex flex-col justify-between min-h-[550px]">
+        {/* RIGHT COLUMN SIDEBAR PANELS (Occupies 1 Column Stacked Exactly like Wireframe) */}
+        <div className="lg:col-span-1 flex flex-col gap-4 h-full justify-between">
           
-          <div className="space-y-5">
-            {/* INSTRUCTOR DETAILS INFO */}
-            <div className="bg-[#F5F3F0]/50 border border-gray-100 p-4 rounded-2xl space-y-3">
-              <p className="text-[10px] font-black tracking-wider text-[#008C45] uppercase">Instructor Details</p>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2 text-gray-700 font-bold">
-                  <FaIdCard className="text-gray-400 shrink-0" />
-                  <span className="truncate">{formData.Instructor_ID || "---"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-700 font-medium">
-                  <FaUser className="text-gray-400 shrink-0" />
-                  <span className="truncate">{formData.First_Name} {formData.Last_Name}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-500 font-medium text-[11px] truncate">
-                  <FaEnvelope className="text-gray-400 shrink-0" />
-                  <span className="truncate">{formData.Email}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* LIVE CAMERA SCANNER STATUS */}
-            <div className="p-3 rounded-xl bg-[#F5F3F0] border border-gray-200/60 flex flex-col gap-2 text-xs font-bold">
-              <div className="flex flex-col gap-1">
-                <span className="text-gray-500 text-[11px]">Camera Scanner:</span>
-                {faceDetected ? (
-                  <span className="text-[#008C45] bg-[#008C45]/10 px-2 py-1 rounded-lg border border-[#008C45]/20 text-center text-[11px]">
-                    Face Active ({Object.keys(angleStatus).length}/5)
-                  </span>
-                ) : (
-                  <span className="text-[#950606] bg-[#950606]/10 px-2 py-1 rounded-lg border border-[#950606]/20 text-center text-[11px] animate-pulse">
-                    No Face Detected
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* STATUS ANGLE SAVED INDICATION */}
-            {savedMessage && (
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-700 flex items-center gap-2 transition-all">
+          {/* BOX 1: STATUS ANGLE SAVED INDICATION */}
+          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-4 flex flex-col justify-center min-h-[80px] shadow-sm">
+            <span className="text-[10px] font-black tracking-wider text-gray-400 uppercase mb-1 block">
+              Status Angle Saved Indication
+            </span>
+            {savedMessage ? (
+              <div className="text-xs font-bold text-gray-800 flex items-center gap-2 animate-pulse">
                 <FaInfoCircle className="text-[#008C45] shrink-0" />
                 <span className="break-words w-full">{savedMessage}</span>
               </div>
+            ) : (
+              <span className="text-xs text-gray-400 font-medium italic">Awaiting Capture Action...</span>
             )}
+          </div>
 
-            {/* PROGRESS BAR */}
-            <div className="space-y-2 pt-1">
-              <div className="flex justify-between items-center text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">
-                <span>Progress</span>
+          {/* BOX 2: INSTRUCTOR INFORMATION */}
+          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-5 flex-grow flex flex-col justify-between min-h-[260px] shadow-sm">
+            <div className="space-y-4">
+              <span className="text-[11px] font-black tracking-wider text-gray-500 uppercase block border-b border-gray-100 pb-2">
+                Instructor Information
+              </span>
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
+                  <FaIdCard className="text-gray-400 shrink-0" />
+                  <span className="font-mono font-bold text-gray-700">{formData.Instructor_ID || "---"}</span>
+                </div>
+                <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
+                  <FaUser className="text-gray-400 shrink-0" />
+                  <span className="font-semibold text-gray-700">{formData.First_Name} {formData.Last_Name}</span>
+                </div>
+                <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100 truncate">
+                  <FaEnvelope className="text-gray-400 shrink-0" />
+                  <span className="font-medium text-gray-600 truncate">{formData.Email}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* LIVE CAMERA ACTIVATION TRIGGER */}
+            <div className="pt-4 border-t border-gray-100">
+              {!allDone ? (
+                <button
+                  onClick={handleStartCapture}
+                  disabled={!modelsReady || isCapturing}
+                  className="w-full py-3 rounded-xl font-bold tracking-wide text-xs uppercase text-white bg-[#008C45] hover:bg-[#0A3A23] shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <FaPlay className="text-[10px]" />
+                  {!modelsReady ? "Loading..." : isCapturing ? "Scanning..." : "Start Capture"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => { if (setActiveTab) setActiveTab("profile"); }}
+                  className="w-full py-3 rounded-xl font-bold tracking-wide text-xs uppercase text-white bg-[#0A3A23] hover:bg-[#008C45] shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <FaSave className="text-[10px]" />
+                  Finish Registration
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* BOX 3: ANGLE CHECKPOINTS & PROGRESS BAR CONTAINER */}
+          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-5 flex flex-col gap-4 shadow-sm">
+            
+            {/* 5 Dots Alignment Layout */}
+            <div className="grid grid-cols-5 gap-2 w-full justify-center">
+              {REQUIRED_ANGLES.map((angle) => {
+                const isDone = angleStatus[angle];
+                const isCurrentTarget = angle === targetAngle && isCapturing;
+                
+                return (
+                  <div key={angle} className="flex flex-col items-center gap-1.5">
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-xs border transition-all ${
+                      isDone 
+                        ? "bg-[#008C45] border-[#008C45] text-white shadow-sm" 
+                        : isCurrentTarget
+                        ? "bg-yellow-400 border-yellow-500 text-gray-900 animate-pulse"
+                        : "bg-gray-50 border-gray-200 text-gray-400"
+                    }`}>
+                      {isDone ? <FaCheckCircle className="text-[11px]" /> : <span className="text-[9px] font-mono">-</span>}
+                    </div>
+                    <span className={`text-[9px] font-bold uppercase tracking-tight ${
+                      isDone ? "text-[#008C45]" : isCurrentTarget ? "text-yellow-600 font-extrabold" : "text-gray-400"
+                    }`}>
+                      {angle}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Continuous Progress Tracker Bar */}
+            <div className="space-y-1.5 border-t border-gray-100 pt-3">
+              <div className="flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                <span>Registration Track</span>
                 <span>{Math.round(progressPercent)}%</span>
               </div>
-              <div className="bg-[#F5F3F0] h-2 rounded-full overflow-hidden border border-gray-100">
+              <div className="bg-gray-100 h-2.5 rounded-full overflow-hidden border border-gray-200/40">
                 <div
                   className="h-full rounded-full bg-[#008C45] transition-all duration-500 ease-out"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
-          </div>
 
-          {/* ACTION BUTTONS */}
-          <div className="pt-2">
-            {!allDone ? (
-              <button
-                onClick={handleStartCapture}
-                disabled={!modelsReady || isCapturing}
-                className="w-full py-3.5 rounded-xl font-bold tracking-wide text-xs uppercase text-white bg-[#008C45] hover:bg-[#0A3A23] shadow-md shadow-[#008C45]/10 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <FaPlay className="text-[10px]" />
-                {!modelsReady ? "Loading..." : isCapturing ? "Scanning..." : "Start Capture"}
-              </button>
-            ) : (
-              <button
-                onClick={() => { if (setActiveTab) setActiveTab("profile"); }}
-                className="w-full py-3.5 rounded-xl font-bold tracking-wide text-xs uppercase text-white bg-[#0A3A23] hover:bg-[#008C45] shadow-md shadow-[#0A3A23]/10 hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <FaSave className="text-[10px]" />
-                All Saved — Finish
-              </button>
-            )}
           </div>
 
         </div>
