@@ -445,7 +445,7 @@ export default function InstructorRegisterFace({ setActiveTab }) {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
         
         {/* LEFT COMPONENT: MAIN CAMERA SCREEN (Occupies 3 Columns) */}
-        <div className="lg:col-span-3 relative border border-gray-200/80 bg-white rounded-[2rem] overflow-hidden min-h-[550px] flex items-center justify-center shadow-xl shadow-gray-100">
+        <div className="lg:col-span-3 relative border border-gray-200/80 bg-white rounded-[2rem] overflow-hidden min-h-[580px] flex items-center justify-center shadow-xl shadow-gray-100">
           <video
             ref={videoRef}
             autoPlay
@@ -485,11 +485,11 @@ export default function InstructorRegisterFace({ setActiveTab }) {
           )}
         </div>
 
-        {/* RIGHT COLUMN SIDEBAR PANELS (Occupies 1 Column Stacked Exactly like Wireframe) */}
-        <div className="lg:col-span-1 flex flex-col gap-4 h-full justify-between">
+        {/* RIGHT COLUMN SIDEBAR PANELS (Stacked exactly like the updated diagram) */}
+        <div className="lg:col-span-1 flex flex-col gap-4 h-full">
           
           {/* BOX 1: STATUS ANGLE SAVED INDICATION */}
-          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-4 flex flex-col justify-center min-h-[80px] shadow-sm">
+          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-4 flex flex-col justify-center min-h-[75px] shadow-sm">
             <span className="text-[10px] font-black tracking-wider text-gray-400 uppercase mb-1 block">
               Status Angle Saved Indication
             </span>
@@ -504,47 +504,23 @@ export default function InstructorRegisterFace({ setActiveTab }) {
           </div>
 
           {/* BOX 2: INSTRUCTOR INFORMATION */}
-          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-5 flex-grow flex flex-col justify-between min-h-[260px] shadow-sm">
-            <div className="space-y-4">
-              <span className="text-[11px] font-black tracking-wider text-gray-500 uppercase block border-b border-gray-100 pb-2">
-                Instructor Information
-              </span>
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
-                  <FaIdCard className="text-gray-400 shrink-0" />
-                  <span className="font-mono font-bold text-gray-700">{formData.Instructor_ID || "---"}</span>
-                </div>
-                <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
-                  <FaUser className="text-gray-400 shrink-0" />
-                  <span className="font-semibold text-gray-700">{formData.First_Name} {formData.Last_Name}</span>
-                </div>
-                <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100 truncate">
-                  <FaEnvelope className="text-gray-400 shrink-0" />
-                  <span className="font-medium text-gray-600 truncate">{formData.Email}</span>
-                </div>
+          <div className="bg-white border border-gray-200/80 rounded-[1.5rem] p-5 flex-grow flex flex-col min-h-[240px] shadow-sm">
+            <span className="text-[11px] font-black tracking-wider text-gray-500 uppercase block border-b border-gray-100 pb-2 mb-4">
+              Instructor Information
+            </span>
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
+                <FaIdCard className="text-gray-400 shrink-0" />
+                <span className="font-mono font-bold text-gray-700">{formData.Instructor_ID || "---"}</span>
               </div>
-            </div>
-
-            {/* LIVE CAMERA ACTIVATION TRIGGER */}
-            <div className="pt-4 border-t border-gray-100">
-              {!allDone ? (
-                <button
-                  onClick={handleStartCapture}
-                  disabled={!modelsReady || isCapturing}
-                  className="w-full py-3 rounded-xl font-bold tracking-wide text-xs uppercase text-white bg-[#008C45] hover:bg-[#0A3A23] shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <FaPlay className="text-[10px]" />
-                  {!modelsReady ? "Loading..." : isCapturing ? "Scanning..." : "Start Capture"}
-                </button>
-              ) : (
-                <button
-                  onClick={() => { if (setActiveTab) setActiveTab("profile"); }}
-                  className="w-full py-3 rounded-xl font-bold tracking-wide text-xs uppercase text-white bg-[#0A3A23] hover:bg-[#008C45] shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <FaSave className="text-[10px]" />
-                  Finish Registration
-                </button>
-              )}
+              <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
+                <FaUser className="text-gray-400 shrink-0" />
+                <span className="font-semibold text-gray-700">{formData.First_Name} {formData.Last_Name}</span>
+              </div>
+              <div className="flex items-center gap-3 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100 truncate">
+                <FaEnvelope className="text-gray-400 shrink-0" />
+                <span className="font-medium text-gray-600 truncate">{formData.Email}</span>
+              </div>
             </div>
           </div>
 
@@ -591,7 +567,28 @@ export default function InstructorRegisterFace({ setActiveTab }) {
                 />
               </div>
             </div>
+          </div>
 
+          {/* STANDALONE LAYOUT ELEMENT: START CAPTURE / ACTION BUTTON */}
+          <div className="mt-auto">
+            {!allDone ? (
+              <button
+                onClick={handleStartCapture}
+                disabled={!modelsReady || isCapturing}
+                className="w-full py-4 rounded-[1.25rem] font-bold tracking-wide text-xs uppercase text-white bg-[#008C45] hover:bg-[#0A3A23] shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <FaPlay className="text-[10px]" />
+                {!modelsReady ? "Loading..." : isCapturing ? "Scanning..." : "Start Capture"}
+              </button>
+            ) : (
+              <button
+                onClick={() => { if (setActiveTab) setActiveTab("profile"); }}
+                className="w-full py-4 rounded-[1.25rem] font-bold tracking-wide text-xs uppercase text-white bg-[#0A3A23] hover:bg-[#008C45] shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                <FaSave className="text-[10px]" />
+                Finish Registration
+              </button>
+            )}
           </div>
 
         </div>
