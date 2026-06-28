@@ -364,17 +364,15 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     const detection = currentDetectionRef.current;
     if (!video || !detection) return null;
 
-    // Get face dimensions raw values
     const { x, y, width, height } = detection.detection.box;
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
 
-    // Make target matrix perfectly square with dynamic margin adjustments (30% padding)
     const squareSize = Math.max(width, height) * 1.3;
     const centerX = x + width / 2;
     const centerY = y + height / 2;
 
-    // Calculate crop parameters with frame clamping bounds checks
+
     let cropX = centerX - squareSize / 2;
     let cropY = centerY - squareSize / 2;
 
@@ -383,32 +381,37 @@ export default function InstructorRegisterFace({ setActiveTab }) {
     if (cropX + squareSize > videoWidth) cropX = videoWidth - squareSize;
     if (cropY + squareSize > videoHeight) cropY = videoHeight - squareSize;
 
-    // Create target thumbnail matrix context (Standard optimized input dimensions: 200x200)
     const canvas = document.createElement("canvas");
     canvas.width = 200;
     canvas.height = 200;
     const ctx = canvas.getContext("2d");
 
-    // Mirroring execution inversion correction layer for local image storage matrix context
+  
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
 
-    // Calculate mirror relative crop offset point map for drawImage processing extraction
-    const mirroredCropX = videoWidth - (cropX + squareSize);
+    let mirroredCropX = videoWidth - (cropX + squareSize);
+    if (mirroredCropX < 0) mirroredCropX = 0;
+    if (mirroredCropX + squareSize > videoWidth) mirroredCropX = videoWidth - squareSize;
 
-    ctx.drawImage(
-      video,
-      mirroredCropX,   // Source X position
-      cropY,           // Source Y position
-      squareSize,      // Source width
-      squareSize,      // Source height
-      0,               // Destination X position
-      0,               // Destination Y position
-      canvas.width,    // Destination width
-      canvas.height    // Destination height
-    );
+    try {
+      ctx.drawImage(
+        video,
+        mirroredCropX,   
+        cropY,          
+        squareSize,      
+        squareSize,      
+        0,              
+        0,               
+        canvas.width,   
+        canvas.height    
+      );
 
-    return canvas.toDataURL("image/jpeg", 0.95);
+      return canvas.toDataURL("image/jpeg", 0.95);
+    } catch (error) {
+      console.error("Cropping error captured:", error);
+      return null;
+    }
   };
 
   const handleStartCapture = () => {
