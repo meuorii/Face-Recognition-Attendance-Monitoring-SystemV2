@@ -354,6 +354,45 @@ def get_monthly_comparison():
 
     return jsonify(response_data), 200
 
+#Get Instructor Top Activities
+@admin_bp.route("/api/admin/instructor-activity", methods=["GET"])
+@jwt_required()
+def get_instructor_activity():
+    program = request.args.get("program")  
+    attendance_query = {}
+    if program:
+        attendance_query["$or"] = [
+            {"course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"Course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
+        ]
+    instructor_stats = {}
+
+    for log in attendance_logs_col.find(attendance_query):
+        ins_id = log.get("instructor_id") or log.get("Instructor_ID")
+        if not ins_id:
+            continue
+            
+        if ins_id not in instructor_stats:
+            first = log.get("instructor_first_name") or log.get("instructor_FirstName") or ""
+            last = log.get("instructor_last_name") or log.get("instructor_LastName") or ""
+            full_name = f"{first} {last}".strip() or "Unknown Instructor"
+            
+            instructor_stats[ins_id] = {
+                "instructor_id": str(ins_id),
+                "instructor_name": full_name,
+                "sessions": 0
+            }
+        instructor_stats[ins_id]["sessions"] += 1
+    sorted_instructors = sorted(
+        instructor_stats.values(),
+        key=lambda x: x["sessions"],
+        reverse=True
+    )
+
+    return jsonify(sorted_instructors), 200
+
 #Last Student Registered
 @admin_bp.route("/api/admin/overview/last-student", methods=["GET"])
 def last_student():
