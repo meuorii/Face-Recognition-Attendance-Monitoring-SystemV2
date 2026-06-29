@@ -117,48 +117,45 @@ def get_program_attendance():
         "data": chart_data
     }), 200
 
-#Recent Attendance Logs
-@admin_bp.route("/api/admin/overview/recent-logs", methods=["GET"])
-def recent_logs():
-    program = request.args.get("program")
-    limit = int(request.args.get("limit", 5))
+#Attendance Distribution
+@admin_bp.route("/api/admin/attendance-distribution", methods=["GET"])
+@jwt_required()
+def get_attendance_distribution():
+    program = request.args.get("program")  
 
-    query = {}
+    # Optional program filter to match your other endpoint patterns
+    attendance_query = {}
     if program:
-        query["$or"] = [
+        attendance_query["$or"] = [
             {"course": {"$regex": f"^{program}$", "$options": "i"}},
             {"Course": {"$regex": f"^{program}$", "$options": "i"}},
             {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
-            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
         ]
 
-    docs = list(attendance_logs_col.find(query).sort("date", -1).limit(20))
-    flattened = []
+    # Initialize data counters
+    distribution = {
+        "present": 0,
+        "late": 0,
+        "absent": 0
+    }
 
-    for log in docs:
-        subject_title = log.get("subject_title")
-        subject_code = log.get("subject_code")
-        if subject_code and subject_title:
-            subject = f"{subject_code} - {subject_title}"
-        else:
-            subject = subject_title or subject_code or "N/A"
+    # Aggregate raw status counts
+    for log in attendance_logs_col.find(attendance_query):
+        students_list = log.get("students", [])
+        
+        for student in students_list:
+            status = str(student.get("status", "")).strip().lower()
+            
+            if status in ["present", "true"]:
+                distribution["present"] += 1
+            elif status in ["late"]:
+                distribution["late"] += 1
+            elif status in ["absent", "false"]:
+                distribution["absent"] += 1
 
-        for stu in log.get("students", []):
-            flattened.append(
-                {
-                    "student": {
-                        "first_name": stu.get("first_name") or stu.get("First_Name"),
-                        "last_name": stu.get("last_name") or stu.get("Last_Name"),
-                        "student_id": stu.get("student_id"),
-                    },
-                    "subject": subject,
-                    "status": stu.get("status"),
-                    "timestamp": stu.get("time_logged") or log.get("date"),
-                }
-            )
+    return jsonify(distribution), 200
 
-    flattened.sort(key=lambda x: str(x.get("timestamp") or ""), reverse=True)
-    return jsonify(flattened[:limit]), 200
 
 #Last Student Registered
 @admin_bp.route("/api/admin/overview/last-student", methods=["GET"])
