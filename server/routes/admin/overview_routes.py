@@ -156,6 +156,58 @@ def get_attendance_distribution():
 
     return jsonify(distribution), 200
 
+@admin_bp.route("/api/admin/top-students", methods=["GET"])
+@jwt_required()
+def get_top_students():
+    program = request.args.get("program")  
+
+    # Optional program filter to match your application's architecture
+    attendance_query = {}
+    if program:
+        attendance_query["$or"] = [
+            {"course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"Course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
+        ]
+
+    student_records = {}
+    attended_statuses = ["Present", "present", "Late", "late", True]
+
+    for log in attendance_logs_col.find(attendance_query):
+        students_list = log.get("students", [])
+        
+        for student in students_list:
+            # Check for standard field name variations (e.g., student_id, Student_ID)
+            s_id = student.get("student_id") or student.get("Student_ID")
+            if not s_id:
+                continue
+                
+            status = student.get("status")
+            
+            if status in attended_statuses:
+                if s_id not in student_records:
+                    # Concat names gracefully based on your database key styling
+                    first = student.get("First_Name") or student.get("first_name") or ""
+                    last = student.get("Last_Name") or student.get("last_name") or ""
+                    full_name = f"{first} {last}".strip() or "Unknown Student"
+                    
+                    student_records[s_id] = {
+                        "student_id": str(s_id),
+                        "name": full_name,
+                        "present_count": 0
+                    }
+                
+                student_records[s_id]["present_count"] += 1
+
+    sorted_students = sorted(
+        student_records.values(), 
+        key=lambda x: x["present_count"], 
+        reverse=True
+    )
+
+    top_10_students = sorted_students[:10]
+    return jsonify(top_10_students), 200
 
 #Last Student Registered
 @admin_bp.route("/api/admin/overview/last-student", methods=["GET"])
