@@ -317,6 +317,43 @@ def get_at_risk_students():
 
     return jsonify(at_risk_students), 200
 
+#Attendance Monthly Comparison
+@admin_bp.route("/api/admin/monthly-comparison", methods=["GET"])
+@jwt_required()
+def get_monthly_comparison():
+    program = request.args.get("program")  
+    attendance_query = {}
+    if program:
+        attendance_query["$or"] = [
+            {"course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"Course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
+        ]
+    months_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    monthly_counts = {month: 0 for month in months_order}
+    attended_statuses = ["Present", "present", "Late", "late", True]
+    for log in attendance_logs_col.find(attendance_query):
+        date_str = log.get("date") 
+        if not date_str:
+            continue
+            
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            month_name = date_obj.strftime("%b")  
+        except Exception:
+            continue  
+        students_list = log.get("students", [])
+        attended_count = sum(1 for s in students_list if s.get("status") in attended_statuses)
+        if month_name in monthly_counts:
+            monthly_counts[month_name] += attended_count
+    response_data = [
+        {"month": month, "attendance": monthly_counts[month]}
+        for month in months_order
+    ]
+
+    return jsonify(response_data), 200
+
 #Last Student Registered
 @admin_bp.route("/api/admin/overview/last-student", methods=["GET"])
 def last_student():
