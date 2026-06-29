@@ -74,6 +74,49 @@ def get_stats():
         }
     ), 200
 
+#Attendance By Program
+@admin_bp.route("/api/admin/program-attendance", methods=["GET"])
+@jwt_required()
+def get_program_attendance():
+    target_programs = ["BSINFOTECH", "BSCS"]
+    chart_data = {}
+
+    attended_statuses = ["Present", "present", "Late", "late", True]
+
+    for program in target_programs:
+        attendance_query = {
+            "$or": [
+                {"course": {"$regex": f"^{program}$", "$options": "i"}},
+                {"Course": {"$regex": f"^{program}$", "$options": "i"}},
+                {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
+                {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
+            ]
+        }
+
+        total_expected_students = 0
+        attended_count = 0
+
+        for log in attendance_logs_col.find(attendance_query):
+            students_list = log.get("students", [])
+            student_count = len(students_list)
+            total_expected_students += student_count
+            attended_count += sum(1 for s in students_list if s.get("status") in attended_statuses)
+
+        attendance_rate = 0.0
+        if total_expected_students > 0:
+            attendance_rate = round((attended_count / total_expected_students) * 100, 2)
+
+        chart_data[program] = {
+            "attendance_rate": attendance_rate,
+            "total_records": total_expected_students,
+            "attended_count": attended_count  
+        }
+
+    return jsonify({
+        "success": True,
+        "data": chart_data
+    }), 200
+
 #Recent Attendance Logs
 @admin_bp.route("/api/admin/overview/recent-logs", methods=["GET"])
 def recent_logs():
