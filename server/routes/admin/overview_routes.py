@@ -209,6 +209,60 @@ def get_top_students():
     top_10_students = sorted_students[:10]
     return jsonify(top_10_students), 200
 
+#Attendance Heatmap
+@admin_bp.route("/api/admin/attendance-heatmap", methods=["GET"])
+@jwt_required()
+def get_attendance_heatmap():
+    program = request.args.get("program")  
+
+    attendance_query = {}
+    if program:
+        attendance_query["$or"] = [
+            {"course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"Course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
+        ]
+
+    heatmap_matrix = {}
+    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    
+    for day in days_of_week:
+        for hour in range(7, 18):  
+            hour_str = f"{hour:02d}:00"
+            heatmap_matrix[(day, hour_str)] = 0
+
+    attended_statuses = ["Present", "present", "Late", "late", True]
+
+    for log in attendance_logs_col.find(attendance_query):
+        date_str = log.get("date")          
+        time_str = log.get("start_time")    
+        
+        if not date_str or not time_str:
+            continue
+        
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            day_name = date_obj.strftime("%A")  
+            time_obj = datetime.strptime(time_str, "%H:%M:%S")
+            hour_floor = time_obj.strftime("%H:00")  
+            
+        except Exception:
+            continue  
+            
+        students_list = log.get("students", [])
+        attended_count = sum(1 for s in students_list if s.get("status") in attended_statuses)
+        
+        if (day_name, hour_floor) in heatmap_matrix:
+            heatmap_matrix[(day_name, hour_floor)] += attended_count
+
+    response_data = [
+        {"day": k[0], "hour": k[1], "count": v}
+        for k, v in heatmap_matrix.items()
+    ]
+
+    return jsonify(response_data), 200
+
 #Last Student Registered
 @admin_bp.route("/api/admin/overview/last-student", methods=["GET"])
 def last_student():
