@@ -392,25 +392,3 @@ def get_instructor_activity():
     )
 
     return jsonify(sorted_instructors), 200
-
-#Last Student Registered
-@admin_bp.route("/api/admin/overview/last-student", methods=["GET"])
-def last_student():
-    program = request.args.get("program")
-    query = {"$or": [
-        {"course": {"$regex": f"^{program}$", "$options": "i"}},
-        {"Course": {"$regex": f"^{program}$", "$options": "i"}}
-    ]} if program else {}
-
-    student = students_col.find_one(query, sort=[("created_at", -1)])
-    if not student:
-        return jsonify(None)
-    
-    return jsonify(
-        {
-            "student_id": student.get("student_id"),
-            "first_name": student.get("First_Name") or student.get("first_name"),
-            "last_name": student.get("Last_Name") or student.get("last_name"),
-            "created_at": student.get("created_at"),
-        }
-    ), 200
