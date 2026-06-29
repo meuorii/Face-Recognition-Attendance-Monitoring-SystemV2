@@ -263,6 +263,60 @@ def get_attendance_heatmap():
 
     return jsonify(response_data), 200
 
+#At Student Risk
+@admin_bp.route("/api/admin/at-risk-students", methods=["GET"])
+@jwt_required()
+def get_at_risk_students():
+    program = request.args.get("program")  
+    attendance_query = {}
+    if program:
+        attendance_query["$or"] = [
+            {"course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"Course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
+        ]
+    student_stats = {}
+    attended_statuses = ["Present", "present", "Late", "late", True]
+
+    for log in attendance_logs_col.find(attendance_query):
+        students_list = log.get("students", [])
+        
+        for student in students_list:
+            s_id = student.get("student_id") or student.get("Student_ID")
+            if not s_id:
+                continue
+            status = student.get("status")
+            if s_id not in student_stats:
+                first = student.get("First_Name") or student.get("first_name") or ""
+                last = student.get("Last_Name") or student.get("last_name") or ""
+                full_name = f"{first} {last}".strip() or "Unknown Student"
+                
+                student_stats[s_id] = {
+                    "student_id": str(s_id),
+                    "name": full_name,
+                    "attended": 0,
+                    "total": 0
+                }
+            student_stats[s_id]["total"] += 1
+            if status in attended_statuses:
+                student_stats[s_id]["attended"] += 1
+
+    at_risk_students = []
+    for s_id, stats in student_stats.items():
+        if stats["total"] > 0:
+            rate = round((stats["attended"] / stats["total"]) * 100, 2)
+            if rate < 75.0:
+                at_risk_students.append({
+                    "student_id": stats["student_id"],
+                    "name": stats["name"],
+                    "attendance_rate": rate
+                })
+
+    at_risk_students = sorted(at_risk_students, key=lambda x: x["attendance_rate"])
+
+    return jsonify(at_risk_students), 200
+
 #Last Student Registered
 @admin_bp.route("/api/admin/overview/last-student", methods=["GET"])
 def last_student():
