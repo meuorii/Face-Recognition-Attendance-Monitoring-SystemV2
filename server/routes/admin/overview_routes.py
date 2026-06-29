@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
 from datetime import datetime
 from config.db_config import db
 from . import admin_bp
@@ -12,21 +13,8 @@ attendance_logs_col = db["attendance_logs"]
 @admin_bp.route("/api/admin/overview/stats", methods=["GET"])
 def get_stats():
     program = request.args.get("program")  
-    today = datetime.utcnow().strftime("%Y-%m-%d")
 
-    attendance_today = 0
-    query = {"date": today}
-    if program:
-        query["$or"] = [
-            {"course": {"$regex": f"^{program}$", "$options": "i"}},
-            {"Course": {"$regex": f"^{program}$", "$options": "i"}},
-            {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
-            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
-        ]
-
-    for log in attendance_logs_col.find(query):
-        attendance_today += len(log.get("students", []))
-
+    # 1. Filters Setup
     student_filter = {"$or": [
         {"course": {"$regex": f"^{program}$", "$options": "i"}},
         {"Course": {"$regex": f"^{program}$", "$options": "i"}}
@@ -37,14 +25,52 @@ def get_stats():
         {"Course": {"$regex": f"^{program}$", "$options": "i"}}
     ]} if program else {}
 
-    total_instructors = instructors_col.count_documents({})
+    # Base query for attendance logs
+    attendance_query = {}
+    if program:
+        attendance_query["$or"] = [
+            {"course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"Course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.course": {"$regex": f"^{program}$", "$options": "i"}},
+            {"students.Course": {"$regex": f"^{program}$", "$options": "i"}}
+        ]
+
+    # 2. Fetch Attendance Metrics
+    total_attendance_records = 0
+    total_expected_students = 0
+    present_count = 0
+
+    # Define all valid attended statuses (including late)
+    attended_statuses = ["Present", "present", "Late", "late", True]
+
+    for log in attendance_logs_col.find(attendance_query):
+        students_list = log.get("students", [])
+        student_count = len(students_list)
+        
+        # Accumulate total historical records
+        total_attendance_records += student_count
+        total_expected_students += student_count
+        
+        # Count actual present and late statuses to determine the rate
+        present_count += sum(1 for s in students_list if s.get("status") in attended_statuses)
+
+    # 3. Calculate Attendance Rate
+    attendance_rate = 0.0
+    if total_expected_students > 0:
+        attendance_rate = round((present_count / total_expected_students) * 100, 2)
+
+    # 4. Core Counts
+    total_students = students_col.count_documents(student_filter)
+    total_instructors = instructors_col.count_documents({}) 
+    total_classes = classes_col.count_documents(class_filter)
 
     return jsonify(
         {
-            "total_students": students_col.count_documents(student_filter),
+            "total_students": total_students,
             "total_instructors": total_instructors,
-            "total_classes": classes_col.count_documents(class_filter),
-            "attendance_today": attendance_today,
+            "total_classes": total_classes,
+            "total_attendance_records": total_attendance_records,
+            "attendance_rate": f"{attendance_rate}%"
         }
     ), 200
 
