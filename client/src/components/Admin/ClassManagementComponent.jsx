@@ -1,9 +1,9 @@
-// src/components/Admin/ClassManagement/ClassManagementComponent.jsx
+// ✅ src/components/Admin/ClassManagement/ClassManagementComponent.jsx
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import axios from "axios";
 import {
-  FaChalkboardTeacher,
+  FaSearch,
   FaEye,
   FaEdit,
   FaTrash,
@@ -26,8 +26,7 @@ const ClassManagementComponent = () => {
   const [deleteClass, setDeleteClass] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState(""); // 🔍 SEARCH BAR
-
+  const [searchQuery, setSearchQuery] = useState("");
 
   // ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -40,7 +39,6 @@ const ClassManagementComponent = () => {
       const res = await axios.get(`${API_URL}/api/admin/classes`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       setClasses(res.data || []);
     } catch (err) {
       console.error(err);
@@ -49,7 +47,6 @@ const ClassManagementComponent = () => {
       setLoading(false);
     }
   };
-
 
   // ─────────────────────────────────────────────────────
   // FORMATTERS
@@ -60,9 +57,7 @@ const ClassManagementComponent = () => {
 
   const formatTime = (blocks) => {
     if (!blocks?.length) return "";
-
     const b = blocks[0];
-
     const toAMPM = (t) => {
       if (!t) return "";
       let [h, m] = t.split(":");
@@ -71,24 +66,19 @@ const ClassManagementComponent = () => {
       h = h % 12 || 12;
       return `${h}:${m} ${ampm}`;
     };
-
     return `${toAMPM(b.start)} – ${toAMPM(b.end)}`;
   };
-
 
   // ─────────────────────────────────────────────────────
   // CURRENT SEM & YEAR
   const currentSemester = classes[0]?.semester || "No Semester";
   const currentSchoolYear = classes[0]?.school_year || "No School Year";
 
-
   // ─────────────────────────────────────────────────────
   // FILTERED LIST (SEARCH)
   const filteredClasses = useMemo(() => {
     if (!searchQuery.trim()) return classes;
-
     const q = searchQuery.toLowerCase();
-
     return classes.filter((cls) => {
       return (
         cls.subject_code?.toLowerCase().includes(q) ||
@@ -100,7 +90,6 @@ const ClassManagementComponent = () => {
       );
     });
   }, [classes, searchQuery]);
-
 
   // ─────────────────────────────────────────────────────
   // GROUP BY YEAR (WITH SEARCH APPLIED)
@@ -118,7 +107,6 @@ const ClassManagementComponent = () => {
       }
     });
 
-    // Sort alphabetically by section
     Object.keys(groups).forEach((year) => {
       groups[year].sort((a, b) => (a.section > b.section ? 1 : -1));
     });
@@ -128,11 +116,8 @@ const ClassManagementComponent = () => {
 
   const formatSemester = (sem) => {
     if (!sem) return "No Semester";
-
     const clean = sem.toLowerCase().trim();
-
     if (clean.includes("summer")) return "Mid Year";
-
     return sem
       .replace(/1st\s*Sem/i, "1st Semester")
       .replace(/2nd\s*Sem/i, "2nd Semester");
@@ -143,11 +128,9 @@ const ClassManagementComponent = () => {
   const handleDelete = async () => {
     try {
       const token = localStorage.getItem("token");
-
       await axios.delete(`${API_URL}/api/admin/delete-class/${deleteClass._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       toast.success("✅ Class deleted");
       setDeleteClass(null);
       fetchClasses();
@@ -157,11 +140,9 @@ const ClassManagementComponent = () => {
     }
   };
 
-
   const handleEdit = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const cleanedScheduleBlocks = (editClass.schedule_blocks || [])
         .map((block) => ({
           ...block,
@@ -189,186 +170,167 @@ const ClassManagementComponent = () => {
     }
   };
 
-
-  // ─────────────────────────────────────────────────────
   return (
-    <div className="bg-neutral-950 p-8 rounded-2xl shadow-xl text-white mx-auto">
+    <div className="space-y-8 px-4 bg-[#F5F3F0] min-h-screen py-8">
+      
+      {/* 1. TYPOGRAPHY HEADER & CONTROLS TOOLBAR */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+        <div>
+          <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">
+            Class Management
+          </h2>
+          <p className="text-[11px] text-[#008C45] font-extrabold tracking-widest uppercase mt-1">
+            {formatSemester(currentSemester)} • S.Y. {currentSchoolYear}
+          </p>
+        </div>
 
-      {/* HEADER + SEARCH + ADD CLASS BUTTON */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 mt-4 w-full">
-
-        {/* LEFT: Class Management Title */}
-        <h2 className="text-3xl font-extrabold text-transparent bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text flex items-center gap-2">
-          <FaChalkboardTeacher className="text-emerald-400" />
-          Class Management
-        </h2>
-
-        {/* RIGHT: Search + Add Button */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
-
+        {/* Toolbar Controls */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 lg:max-w-xl justify-end">
           {/* SEARCH BAR */}
-          <input
-            type="text"
-            placeholder="Search subject, instructor, or section..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="px-4 py-2 bg-neutral-900 border border-neutral-700 text-neutral-200 
-                      rounded-lg placeholder-neutral-500 focus:outline-none 
-                      focus:ring-2 focus:ring-emerald-500 shadow w-full md:w-72"
-          />
+          <div className="relative flex-1 flex items-center bg-white border border-[#0A3A23]/10 rounded-xl px-4 shadow-sm focus-within:border-[#008C45] transition-all">
+            <FaSearch className="text-[#0A3A23]/30 text-xs mr-2" />
+            <input
+              type="text"
+              placeholder="Search subject, instructor, or section..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-10 placeholder:text-[#0A3A23]/30"
+            />
+          </div>
 
           {/* ADD CLASS BUTTON */}
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 
-                      rounded-lg text-white font-semibold shadow-md transition-transform 
-                      hover:scale-105 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#0A3A23] hover:bg-[#008C45] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5"
           >
             <FaPlus /> Add Class
           </button>
-
         </div>
       </div>
 
-      {/* SEMESTER BADGE */}
-      <div className="mb-6">
-        <span className="px-4 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-emerald-300 text-sm font-semibold shadow">
-          {formatSemester(currentSemester)} • S.Y. {currentSchoolYear}
-        </span>
-      </div>
+      {/* 2. DATA TABLES CONTAINER PER YEAR LEVEL */}
+      <div className="space-y-10">
+        {Object.entries(groupedByYear).map(([year, list]) => {
+          if (!loading && list.length === 0) return null;
 
-      {/* MULTIPLE TABLES PER YEAR */}
-      {Object.entries(groupedByYear).map(([year, list]) => {
-        if (!loading && list.length === 0) return null;
+          return (
+            <div key={year} className="space-y-3">
+              {/* YEAR SECTION TITLE */}
+              <h3 className="text-sm font-black text-[#0A3A23] uppercase tracking-wider pl-1">
+                {year}
+              </h3>
 
-        return (
-          <div key={year} className="mb-12">
-
-            {/* YEAR HEADER */}
-            <h3 className="text-xl font-bold text-emerald-400 mb-3">
-              {year}
-            </h3>
-
-            {/* TABLE */}
-            <div className="w-full overflow-hidden rounded-2xl border border-neutral-800 shadow-lg shadow-black/30">
-
-              <table className="w-full table-fixed text-sm">
-
-                <colgroup>
-                  <col className="w-[10%]" />
-                  <col className="w-[24%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[8%]" />
-                  <col className="w-[8%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[14%]" />
-                </colgroup>
-
-                <thead className="bg-neutral-900/80 backdrop-blur border-b border-neutral-800/60 text-emerald-300 uppercase text-xs tracking-wider">
-                  <tr className="h-12">
-                    <th className="px-4 text-left">Code</th>
-                    <th className="px-4 text-left">Title</th>
-                    <th className="px-4 text-left">Instructor</th>
-                    <th className="px-4 text-left">Section</th>
-                    <th className="px-4 text-center">Students</th>
-                    <th className="px-4 text-left">Schedule</th>
-                    <th className="px-4 text-center">Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody className="text-neutral-300">
-
-                  {loading && (
-                    <tr>
-                      <td colSpan="7" className="text-center py-8 text-neutral-500">
-                        Loading classes...
-                      </td>
+              {/* SYSTEM DATA GRID VIEW */}
+              <div className="overflow-hidden bg-white rounded-[24px] border border-[#0A3A23]/10 shadow-[0_16px_45px_rgba(10,58,35,0.03)]">
+                <table className="w-full table-fixed text-sm border-collapse">
+                  <colgroup>
+                    <col className="w-[12%]" />
+                    <col className="w-[24%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[10%]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-[#0A3A23] text-white text-[10px] font-black tracking-widest uppercase">
+                      <th className="px-6 py-4 text-left">Code</th>
+                      <th className="px-6 py-4 text-left">Title</th>
+                      <th className="px-6 py-4 text-left">Instructor</th>
+                      <th className="px-6 py-4 text-left">Section</th>
+                      <th className="px-6 py-4 text-center">Students</th>
+                      <th className="px-6 py-4 text-left">Schedule</th>
+                      <th className="px-6 py-4 text-center">Actions</th>
                     </tr>
-                  )}
-
-                  {!loading &&
-                    list.map((cls, idx) => (
-                      <tr
-                        key={idx}
-                        className="h-14 align-middle odd:bg-neutral-950 even:bg-neutral-900/20 hover:bg-neutral-800/40 transition border-b border-neutral-800/70"
-                      >
-                        <td className="px-4 font-mono text-emerald-400">{cls.subject_code}</td>
-                        <td className="px-4 font-medium truncate" title={cls.subject_title}>
-                          {cls.subject_title}
-                        </td>
-                        <td className="px-4 truncate whitespace-nowrap" title={`${cls.instructor_first_name} ${cls.instructor_last_name}`}>
-                          {cls.instructor_first_name} {cls.instructor_last_name}
-                        </td>
-                        <td className="px-4 font-semibold">{cls.section}</td>
-                        <td className="px-4 text-center">
-                          <span className="px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-400 border border-emerald-500/20 font-medium">
-                            {cls.students?.length || 0}
-                          </span>
-                        </td>
-
-                        {/* SCHEDULE CELL */}
-                        <td className="px-4 py-3 text-neutral-300">
-                          {(!cls.schedule_blocks || cls.schedule_blocks.length === 0) ? (
-                            <div className="inline-block px-3 py-1.5 text-xs font-medium 
-                                            bg-neutral-800 text-neutral-400 rounded-lg 
-                                            border border-neutral-700 w-fit">
-                              No schedule set
-                            </div>
-                          ) : (
-                            <div className="inline-flex flex-col gap-1 px-3 py-2 
-                                            bg-neutral-900/60 rounded-lg border border-neutral-700/40 
-                                            shadow-sm w-fit">
-
-                              <span className="inline-block px-2 py-0.5 text-[11px] font-semibold 
-                                              bg-emerald-600/20 text-emerald-300 rounded-full 
-                                              border border-emerald-500/20 w-fit">
-                                {formatDays(cls.schedule_blocks)}
-                              </span>
-
-                              <span className="inline-block px-2 py-0.5 text-[11px] font-medium 
-                                              bg-neutral-700/30 text-neutral-200 rounded-full 
-                                              border border-neutral-600/20 w-fit">
-                                {formatTime(cls.schedule_blocks)}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-
-                        {/* ACTION BUTTONS */}
-                        <td className="px-2">
-                          <div className="flex items-center justify-center gap-2">
-
-                            <button
-                              onClick={() => setSelectedClass(cls)}
-                              className="p-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white shadow"
-                            >
-                              <FaEye size={14} />
-                            </button>
-
-                            <button
-                              onClick={() => setEditClass(cls)}
-                              className="p-2 bg-yellow-500 hover:bg-yellow-400 rounded-lg text-white shadow"
-                            >
-                              <FaEdit size={14} />
-                            </button>
-
-                            <button
-                              onClick={() => setDeleteClass(cls)}
-                              className="p-2 bg-red-600 hover:bg-red-500 rounded-lg text-white shadow"
-                            >
-                              <FaTrash size={14} />
-                            </button>
-
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A3A23]/5 bg-white text-[#0A3A23]/90">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="7" className="px-6 py-12 text-center text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest bg-[#F5F3F0]/20">
+                          Loading classes data...
                         </td>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
+                    ) : (
+                      list.map((cls, idx) => (
+                        <tr key={idx} className="hover:bg-[#F5F3F0]/40 transition-all duration-200 group">
+                          {/* Code */}
+                          <td className="px-6 py-4 font-mono font-black text-xs text-[#008C45]">
+                            {cls.subject_code}
+                          </td>
+                          {/* Title */}
+                          <td className="px-6 py-4 font-bold text-xs truncate text-[#0A3A23]" title={cls.subject_title}>
+                            {cls.subject_title}
+                          </td>
+                          {/* Instructor */}
+                          <td className="px-6 py-4 text-xs font-semibold truncate text-[#0A3A23]/80" title={`${cls.instructor_first_name} ${cls.instructor_last_name}`}>
+                            {cls.instructor_first_name} {cls.instructor_last_name}
+                          </td>
+                          {/* Section */}
+                          <td className="px-6 py-4 font-black text-xs uppercase text-[#0A3A23]">
+                            {cls.section}
+                          </td>
+                          {/* Students Count Badge */}
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-block px-3 py-1 text-[10px] font-black bg-[#008C45]/10 text-[#008C45] rounded-xl uppercase tracking-wider">
+                              {cls.students?.length || 0}
+                            </span>
+                          </td>
+                          {/* Schedule Cards */}
+                          <td className="px-6 py-4">
+                            {!cls.schedule_blocks || cls.schedule_blocks.length === 0 ? (
+                              <span className="text-[10px] font-black text-[#0A3A23]/30 uppercase tracking-wide">
+                                Unscheduled
+                              </span>
+                            ) : (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-black text-[#008C45] uppercase tracking-wide">
+                                  {formatDays(cls.schedule_blocks)}
+                                </span>
+                                <span className="text-[10px] font-bold text-[#0A3A23]/60">
+                                  {formatTime(cls.schedule_blocks)}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          {/* System Control Interface Action Handles */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {/* View Action Button */}
+                              <button
+                                onClick={() => setSelectedClass(cls)}
+                                title="View Students Registered"
+                                className="p-2.5 rounded-xl border border-[#008C45]/10 bg-[#008C45]/5 text-[#008C45] transition-all hover:bg-[#008C45] hover:text-white"
+                              >
+                                <FaEye size={11} />
+                              </button>
+                              {/* Edit Action Button */}
+                              <button
+                                onClick={() => setEditClass(cls)}
+                                title="Modify parameters"
+                                className="p-2.5 rounded-xl border border-[#0A3A23]/10 bg-[#0A3A23]/5 text-[#0A3A23] transition-all hover:bg-[#0A3A23] hover:text-white"
+                              >
+                                <FaEdit size={11} />
+                              </button>
+                              {/* Delete Action Button */}
+                              <button
+                                onClick={() => setDeleteClass(cls)}
+                                title="Remove configuration record"
+                                className="p-2.5 rounded-xl border border-red-600/10 bg-red-600/5 text-red-600 transition-all hover:bg-red-600 hover:text-white"
+                              >
+                                <FaTrash size={11} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
       {/* MODALS */}
       {selectedClass && (
