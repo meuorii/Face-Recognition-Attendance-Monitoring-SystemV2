@@ -1,7 +1,12 @@
+// ✅ src/components/Admin/ClassManagement/SubjectManagementComponent.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaChalkboardTeacher } from "react-icons/fa";
+import { 
+  FaSlidersH, 
+  FaCalendarCheck, 
+  FaExclamationTriangle 
+} from "react-icons/fa";
 import SemesterManagementModal from "./SubjectManagement/SemesterManagementModal";
 
 export default function SubjectManagementComponent() {
@@ -86,142 +91,170 @@ export default function SubjectManagementComponent() {
   const yearLevels = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 
   return (
-    <div className="bg-neutral-950 text-white p-8 rounded-xl shadow-lg space-y-10">
+    <div className="space-y-12 px-4">
+      
+      {/* 1. TYPOGRAPHY HEADER & CONTROLS TOOLBAR */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+        <div>
+          <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">
+            Subject Management
+          </h2>
+          <p className="text-[11px] text-[#008C45] font-extrabold tracking-widest uppercase mt-1">
+            Curriculum Configuration Environment
+          </p>
+        </div>
 
-      {/* PAGE TITLE */}
-      <h2 className="text-3xl font-extrabold flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
-        <FaChalkboardTeacher className="text-emerald-400" />
-        Subject Management
-      </h2>
-
-      {/* ========================================= */}
-      {/* OPTION B: Active Semester LEFT, Buttons RIGHT */}
-      {/* ========================================= */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-neutral-950 p-4 rounded-xl border border-neutral-950">
-
-        {/* LEFT: ACTIVE SEMESTER */}
-        {activeSemester ? (
-          <div className="bg-neutral-800 px-5 py-3 rounded-lg border border-emerald-500/30 text-emerald-300 shadow">
-            <p className="font-semibold text-emerald-400 text-sm">🟢 Active Semester</p>
-            <p className="text-emerald-200">
-              {formatSemester(activeSemester.semester_name)} — {activeSemester.school_year}
-            </p>
-          </div>
-        ) : (
-          <div className="text-gray-400 italic text-sm">
-            ⚠ No active semester set.
-          </div>
-        )}
-
-        {/* RIGHT: BUTTON + DROPDOWN */}
-        <div className="flex flex-wrap gap-4">
-
-          {/* MANAGE SEMESTER BUTTON */}
-          <button
-            onClick={() => setShowSemesterModal(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-white text-sm transition shadow-md"
-          >
-            Manage Semesters
-          </button>
-
-          {/* CURRICULUM DROPDOWN */}
+        {/* Toolbar Controls */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-1 lg:max-w-xl justify-end">
+          
+          {/* CURRICULUM DROPDOWN SELECTOR */}
           {curriculums.length > 0 && (
-            <select
-              value={selectedCurriculum}
-              onChange={(e) => setSelectedCurriculum(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 px-4 py-2 rounded-lg text-emerald-300 text-sm focus:outline-none focus:border-emerald-500"
-            >
-              {curriculums.map((c) => (
-                <option key={c} value={c}>
-                  Curriculum {c}
-                </option>
-              ))}
-            </select>
+            <div className="relative flex-1 flex items-center bg-white border border-[#0A3A23]/10 rounded-xl px-4 shadow-sm focus-within:border-[#008C45] transition-all">
+              <select
+                value={selectedCurriculum}
+                onChange={(e) => setSelectedCurriculum(e.target.value)}
+                className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
+              >
+                {curriculums.map((c) => (
+                  <option key={c} value={c} className="text-[#0A3A23] font-bold">
+                    Curriculum {c}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#0A3A23]/40 text-xs">
+                ▼
+              </div>
+            </div>
           )}
 
+          {/* MANAGE SEMESTERS TRIGGER BUTTON */}
+          <button
+            onClick={() => setShowSemesterModal(true)}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#0A3A23] hover:bg-[#008C45] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5"
+          >
+            <FaSlidersH /> Manage Semesters
+          </button>
         </div>
       </div>
 
-      {/* MODAL */}
+      {/* 2. STANDALONE ACTIVE SEMESTER INFORMATION CARD */}
+      <div className="w-full">
+        {activeSemester ? (
+          <div className="bg-white p-8 rounded-[28px] border border-[#0A3A23]/10 shadow-[0_25px_60px_rgba(10,58,35,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-6 transition-all hover:border-[#008C45]/20">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-gradient-to-br from-[#008C45]/10 to-[#0A3A23]/5 rounded-2xl text-[#008C45] shrink-0">
+                <FaCalendarCheck size={24} />
+              </div>
+              <div className="space-y-1">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#008C45]/10 text-[#008C45] uppercase tracking-widest">
+                  Current Active Term
+                </span>
+                <h3 className="text-xl font-black text-[#0A3A23] tracking-tight">
+                  {formatSemester(activeSemester.semester_name)}
+                </h3>
+              </div>
+            </div>
+            
+            {/* School Year Info on the Right Side */}
+            <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-[#0A3A23]/10 pt-4 sm:pt-0 sm:pl-8 flex flex-col justify-center">
+              <span className="text-[10px] font-bold text-[#0A3A23]/40 uppercase tracking-widest">School Year</span>
+              <span className="text-base font-mono font-black text-[#0A3A23]">
+                S.Y. {activeSemester.school_year}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white p-8 rounded-[28px] border border-red-100 shadow-[0_25px_60px_rgba(220,38,38,0.03)] flex flex-col sm:flex-row sm:items-center gap-5 transition-all">
+            <div className="p-4 bg-gradient-to-br from-red-50 to-red-100/50 rounded-2xl text-red-600 shrink-0 w-max">
+              <FaExclamationTriangle size={24} />
+            </div>
+            <div className="space-y-1">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700 uppercase tracking-widest">
+                Warning
+              </span>
+              <h3 className="text-lg font-black text-red-950 tracking-tight">
+                No Active Semester Found
+              </h3>
+              <p className="text-xs font-medium text-red-600/80">
+                Please set the active semester inside "Manage Semesters" to show the subjects.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. DATA TABLES CONTAINER PER YEAR LEVEL */}
+      <div className="space-y-12">
+        {yearLevels.map((year) => {
+          const subjectsByYear = filteredSubjects.filter(
+            (s) => s.year_level === year
+          );
+
+          if (subjectsByYear.length === 0) return null;
+
+          return (
+            <div key={year} className="space-y-4">
+              
+              {/* YEAR SECTION TITLE */}
+              <h3 className="text-xs font-black text-[#0A3A23]/60 uppercase tracking-[0.15em] pl-2">
+                {year}
+              </h3>
+
+              {/* SYSTEM DATA GRID VIEW */}
+              <div className="overflow-hidden bg-white rounded-[32px] border border-[#0A3A23]/10 shadow-[0_20px_50px_rgba(10,58,35,0.04)]">
+                <table className="w-full table-fixed text-sm border-collapse">
+                  <colgroup>
+                    <col className="w-full" />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-[#0A3A23] text-white text-[11px] font-black tracking-widest uppercase">
+                      <th className="px-8 py-6 text-left">Subject Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A3A23]/5 bg-white text-[#0A3A23]/90">
+                    {subjectsByYear.map((s) => (
+                      <tr key={s._id} className="hover:bg-[#F5F3F0]/40 transition-all duration-200 group">
+                        
+                        {/* Compact Combined Subject Column - Fully expanded width */}
+                        <td className="px-8 py-6">
+                          <div className="flex flex-col gap-0.5 max-w-full">
+                            <span className="font-mono font-black text-sm text-[#008C45]">
+                              {s.subject_code}
+                            </span>
+                            <span className="font-bold text-xs text-[#0A3A23] truncate tracking-wide" title={s.subject_title}>
+                              {s.subject_title}
+                            </span>
+                          </div>
+                        </td>
+
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
+
+      {/* EMPTY DATA STATE BANNER */}
+      {filteredSubjects.length === 0 && (
+        <div className="text-center bg-white border border-[#0A3A23]/5 rounded-[32px] py-16 text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest shadow-[0_20px_50px_rgba(10,58,35,0.02)]">
+          <div className="flex flex-col items-center gap-2 justify-center">
+            <FaExclamationTriangle size={16} className="text-[#0A3A23]/30" />
+            <span>No subjects found for the active semester and curriculum.</span>
+          </div>
+        </div>
+      )}
+
+      {/* SEMESTER CONTROLLER MODAL */}
       <SemesterManagementModal
         isOpen={showSemesterModal}
         onClose={() => setShowSemesterModal(false)}
         onRefresh={fetchActiveSemesterSubjects}
       />
 
-      {/* ========================================= */}
-      {/* SUBJECT LIST */}
-      {/* ========================================= */}
-      {yearLevels.map((year) => {
-        const subjectsByYear = filteredSubjects.filter(
-          (s) => s.year_level === year
-        );
-
-        if (subjectsByYear.length === 0) return null;
-
-        return (
-          <div key={year} className="space-y-8">
-
-            {/* YEAR HEADER */}
-            <div className="pl-4 border-l-4 border-emerald-500">
-              <h2 className="text-2xl font-bold text-emerald-400">{year}</h2>
-              <p className="text-sm text-gray-400">
-                {subjectsByYear.length} total subject
-                {subjectsByYear.length > 1 ? "s" : ""}
-              </p>
-            </div>
-
-            {/* BLOCK */}
-            <div className="rounded-xl bg-neutral-900/60 border border-neutral-700 backdrop-blur-sm shadow-lg overflow-hidden">
-
-              {/* BLOCK HEADER */}
-              <div className="bg-gradient-to-r from-emerald-700/20 to-green-700/20 px-6 py-4 border-b border-neutral-800">
-                <h3 className="text-lg font-semibold text-emerald-300">
-                  {formatSemester(activeSemester?.semester_name)} — Curriculum {selectedCurriculum}
-                </h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  {subjectsByYear.length} subject{subjectsByYear.length > 1 ? "s" : ""}
-                </p>
-              </div>
-
-              {/* TABLE HEADER */}
-              <div className="hidden md:grid grid-cols-2 bg-neutral-900/80 
-                              text-emerald-300 font-semibold text-sm tracking-wide 
-                              border-b border-neutral-800">
-                <div className="px-4 py-3">Code</div>
-                <div className="px-4 py-3">Title</div>
-              </div>
-
-              {/* SUBJECT ROWS */}
-              {subjectsByYear.map((s) => (
-                <div
-                  key={s._id}
-                  className="grid md:grid-cols-2 text-sm text-neutral-300 
-                            border-b border-neutral-800 hover:bg-neutral-800/40 
-                            hover:shadow-lg hover:shadow-emerald-500/10 
-                            transition-all duration-300"
-                >
-                  {/* CODE */}
-                  <div className="px-4 py-3 font-mono text-emerald-400">
-                    {s.subject_code}
-                  </div>
-
-                  {/* TITLE */}
-                  <div className="px-4 py-3 font-medium truncate max-w-full">
-                    {s.subject_title}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-
-      {filteredSubjects.length === 0 && (
-        <div className="text-center text-neutral-500 py-10 italic">
-          No subjects found for the active semester and curriculum.
-        </div>
-      )}
     </div>
   );
 }
