@@ -136,8 +136,11 @@ def get_attendance_distribution():
         "present": 0,
         "late": 0,
         "absent": 0,
-        "total": 0  # Idinagdag ang counter para sa kabuuang logs
+        "sessions": 0  # Dito i-save ang kabuuang bilang ng database records/sessions
     }
+
+    # Kunin ang kabuuang bilang ng logs/sessions na tumugma sa query
+    distribution["sessions"] = attendance_logs_col.count_documents(attendance_query)
 
     for log in attendance_logs_col.find(attendance_query):
         students_list = log.get("students", [])
@@ -151,9 +154,6 @@ def get_attendance_distribution():
                 distribution["late"] += 1
             elif status in ["absent", "false"]:
                 distribution["absent"] += 1
-
-    # Kwentahin ang kabuuang bilang ng mga logs na nakuha
-    distribution["total"] = distribution["present"] + distribution["late"] + distribution["absent"]
 
     return jsonify(distribution), 200
 
