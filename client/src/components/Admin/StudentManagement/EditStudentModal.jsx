@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaUserEdit, FaTimes, FaCameraRetro } from "react-icons/fa";
+import { X, UserCheck, IdCard, GraduationCap, FileText, Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const EditStudentModal = ({ isOpen, onClose, student, onStudentUpdated }) => {
@@ -39,13 +39,11 @@ const EditStudentModal = ({ isOpen, onClose, student, onStudentUpdated }) => {
 
   if (!isOpen || !student) return null;
 
-  // 🔥 UPDATED handleChange: auto-format name inputs
+  // 🔥 auto-format name inputs
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     let formattedValue = value;
 
-    // Format name fields only
     if (["first_name", "middle_name", "last_name"].includes(name)) {
       formattedValue = formatName(value);
     }
@@ -86,114 +84,136 @@ const EditStudentModal = ({ isOpen, onClose, student, onStudentUpdated }) => {
         course: formData.course,
       },
     });
-
     onClose();
   };
 
+  const initials = `${formData.first_name.charAt(0)}${formData.last_name.charAt(0)}`.toUpperCase();
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fadeIn px-4">
-      <div className="bg-neutral-900/95 w-full max-w-2xl rounded-2xl shadow-2xl border border-white/10 
-                      flex flex-col animate-scaleIn max-h-[95vh] overflow-hidden">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/10 sticky top-0 bg-neutral-900/90 backdrop-blur z-10">
-          <div className="flex items-center gap-3">
-            <FaUserEdit className="text-emerald-400 text-2xl" />
-            <h2 className="text-xl font-extrabold bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
-              Edit Student
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full bg-neutral-800/60 hover:bg-red-500/30 text-neutral-400 hover:text-white transition"
-          >
-            <FaTimes />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="px-4 sm:px-6 py-6 grid grid-cols-1 sm:grid-cols-2 gap-6 flex-1 overflow-y-auto"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A3A23]/40 backdrop-blur-md animate-fadeIn px-6">
+      {/* Expanded Modern Canvas Layout */}
+      <div className="bg-white w-full max-w-4xl md:min-h-[540px] rounded-[44px] shadow-[0_50px_110px_rgba(10,58,35,0.28)] border border-[#0A3A23]/10 overflow-hidden relative transform transition-all scale-100 max-h-[92vh] flex flex-col md:flex-row">
+        
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-8 right-8 z-10 p-2.5 rounded-full text-[#0A3A23]/40 hover:text-red-600 hover:bg-red-50 transition-all active:scale-95"
         >
-          <FormField
-            label="First Name"
-            name="first_name"
-            value={formData.first_name}
-            onChange={handleChange}
-            required
-          />
+          <X size={22} />
+        </button>
 
-          <FormField
-            label="Middle Name"
-            name="middle_name"
-            value={formData.middle_name}
-            onChange={handleChange}
-          />
+        {/* LEFT DECK: Premium Showcase Branding Panel */}
+        <div className="md:w-1/3 bg-gradient-to-b from-[#0A3A23] to-[#005c2d] p-12 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0">
+          <div className="absolute -top-10 -left-10 w-36 h-36 bg-white/5 rounded-full pointer-events-none" />
+          <div className="absolute -bottom-10 -right-10 w-44 h-44 bg-white/5 rounded-full pointer-events-none" />
 
-          <FormField
-            label="Last Name"
-            name="last_name"
-            value={formData.last_name}
-            onChange={handleChange}
-            required
-          />
-
-          {/* Course */}
-          <div className="flex flex-col">
-            <label className="mb-2 text-xs uppercase tracking-wide bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
-              Course
-            </label>
-            <select
-              name="course"
-              value={formData.course}
-              onChange={handleChange}
-              className="px-4 py-2.5 rounded-lg bg-neutral-800 border border-white/10 text-white 
-                         focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
-              required
-            >
-              <option value="">Select Course</option>
-              <option value="BSINFOTECH">BSINFOTECH</option>
-              <option value="BSCS">BSCS</option>
-            </select>
+          {/* Premium Avatar Container */}
+          <div className="w-32 h-32 rounded-[36px] bg-white text-[#0A3A23] flex items-center justify-center text-5xl font-black tracking-tighter shadow-2xl border-4 border-white/20 mb-8">
+            {initials || "ST"}
           </div>
-        </form>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10 bg-neutral-900/80 flex justify-between sm:justify-end gap-3 sticky bottom-0">
+          {/* Badge */}
+          <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 mb-10 backdrop-blur-md">
+            <UserCheck size={12} className="text-white" /> Modifier Mode
+          </span>
 
-          <button
-            onClick={handleReregisterFace}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg 
-                       bg-gradient-to-r from-blue-500 to-blue-600 
-                       text-white text-sm font-semibold shadow-md
-                       hover:from-blue-600 hover:to-blue-700 
-                       hover:shadow-blue-500/40 hover:scale-105 
-                       transition-all duration-300"
-          >
-            <FaCameraRetro className="text-white" />
-            Re-Register Face
-          </button>
-
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-5 py-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-200 text-sm transition hover:scale-105"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              className="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 
-                         text-white text-sm font-semibold shadow-md
-                         hover:from-emerald-600 hover:to-green-700 
-                         hover:shadow-emerald-500/40 hover:scale-105 transition"
-            >
-              Save Changes
-            </button>
-          </div>
+          <h3 className="text-2xl font-black text-white tracking-tight leading-tight max-w-[200px] break-words">
+            {formData.last_name || "Surname"}
+          </h3>
+          <p className="text-sm font-medium text-white/70 mt-2 max-w-[200px] break-words">
+            {formData.first_name} {formData.middle_name}
+          </p>
         </div>
+
+        {/* RIGHT DECK: Spacious & Symmetrical Form Layout */}
+        <form onSubmit={handleSubmit} className="flex-1 p-12 md:p-14 space-y-10 overflow-y-auto flex flex-col justify-between">
+          
+          {/* Simple Headings */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-[#008C45] uppercase tracking-widest block">Update Record</span>
+            <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">Edit Information</h2>
+          </div>
+
+          {/* Main Form Fields Container */}
+          <div className="space-y-8 flex-1 mt-4">
+            
+            {/* Top Row: Student ID & Course Input */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div className="rounded-2xl p-5 border border-[#0A3A23]/5 bg-[#F5F3F0]/60 opacity-70">
+                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                  <IdCard size={16} className="text-[#008C45]" /> Student ID
+                </span>
+                <span className="text-base font-mono font-bold text-[#008C45] block">{student.student_id}</span>
+              </div>
+
+              <div className="flex flex-col rounded-2xl p-5 border border-[#0A3A23]/5 bg-[#F5F3F0]/60 focus-within:bg-white focus-within:border-[#0A3A23]/20 focus-within:shadow-md transition-all duration-300">
+                <label className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <GraduationCap size={16} className="text-[#008C45]" /> Course
+                </label>
+                <select
+                  name="course"
+                  value={formData.course}
+                  onChange={handleChange}
+                  className="w-full bg-transparent text-base font-black text-[#0A3A23] outline-none cursor-pointer"
+                  required
+                >
+                  <option value="">Select Course</option>
+                  <option value="BSINFOTECH">BSINFOTECH</option>
+                  <option value="BSCS">BSCS</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Bottom Section: Left-aligned Symmetrical Grid for Names */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-[#F5F3F0]/50 p-6 rounded-[28px] border border-[#0A3A23]/5">
+              <FormField
+                label="First Name"
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                required
+              />
+              <FormField
+                label="Middle Name"
+                name="middle_name"
+                value={formData.middle_name}
+                onChange={handleChange}
+              />
+              <FormField
+                label="Last Name"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+          </div>
+
+          {/* Footer Actions Area (Cleaned Up & Palettized) */}
+          <div className="pt-6 border-t border-[#0A3A23]/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+            {/* Re-Register Button themed using the #0A3A23 Brand Palette */}
+            <button
+              type="button"
+              onClick={handleReregisterFace}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#0A3A23]/5 text-[#0A3A23] text-xs font-black uppercase tracking-wider hover:bg-[#0A3A23]/10 active:scale-98 transition-all"
+            >
+              <Camera size={14} className="text-[#008C45]" />
+              Re-Register Face
+            </button>
+
+            <div className="w-full sm:w-auto flex justify-end">
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-8 py-3 rounded-xl bg-[#0A3A23] text-white text-xs font-black uppercase tracking-wider hover:bg-[#005c2d] shadow-md shadow-[#0A3A23]/20 active:scale-98 transition-all"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+
+        </form>
 
       </div>
     </div>,
@@ -201,13 +221,12 @@ const EditStudentModal = ({ isOpen, onClose, student, onStudentUpdated }) => {
   );
 };
 
-/* Reusable Form Field */
+/* ✅ Reusable Sub-Component Form Field */
 function FormField({ label, name, value, onChange, required }) {
   return (
-    <div className="flex flex-col transition-all">
-      <label className="mb-1 text-xs font-semibold uppercase tracking-wide 
-                        bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
-        {label}
+    <div className="flex flex-col space-y-1.5 text-left w-full">
+      <label className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider flex items-center gap-1.5">
+        <FileText size={12} className="text-[#008C45]" /> {label}
       </label>
       <input
         type="text"
@@ -215,10 +234,8 @@ function FormField({ label, name, value, onChange, required }) {
         required={required}
         value={value}
         onChange={onChange}
-        className="px-4 py-2.5 rounded-lg bg-neutral-800/80 border border-white/10 text-white 
-                   placeholder-neutral-500 focus:border-emerald-500 focus:ring-2 
-                   focus:ring-emerald-400/60 focus:scale-[1.01] transition-all shadow-sm"
         placeholder={`Enter ${label}`}
+        className="w-full bg-transparent text-base font-extrabold text-[#0A3A23] border-b border-[#0A3A23]/10 focus:border-[#008C45] outline-none pb-1 transition-colors placeholder:text-[#0A3A23]/20 placeholder:font-normal"
       />
     </div>
   );
