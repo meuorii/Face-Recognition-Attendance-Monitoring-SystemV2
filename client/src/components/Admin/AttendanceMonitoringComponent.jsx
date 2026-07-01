@@ -1,22 +1,16 @@
 // src/components/Admin/AttendanceMonitoring.jsx
 import { useEffect, useState } from "react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import axios from "axios";
 
 import { toast } from "react-toastify";
-import { FaListUl, FaFilePdf, FaExclamationTriangle } from "react-icons/fa";
+import { FaListUl, FaFilePdf, FaExclamationTriangle, FaSlidersH } from "react-icons/fa";
 
 import DailyLogsModalAdmin from "../Admin/DailyLogsModalAdmin";
+import AttendanceFilterModal from "./AttendanceMonitoring/AttendanceFilterModal"; // Inimport ang bagong modal file
 
 const API = "http://127.0.0.1:8080";
-
-const monthNames = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-];
 
 const semesterMap = {
   "1st Sem": "1st Semester",
@@ -28,6 +22,7 @@ export default function AttendanceMonitoring() {
   const [sessions, setSessions] = useState([]);
   const [filteredSessions, setFilteredSessions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false); // Modal control track
 
   // ADMIN MODAL STYLE
   const [activeSession, setActiveSession] = useState(null);
@@ -38,8 +33,8 @@ export default function AttendanceMonitoring() {
   const [selectedSchoolYear, setSelectedSchoolYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedInstructor, setSelectedInstructor] = useState("");
-
   const [weekStart, setWeekStart] = useState(null);
+
   const weekEnd = weekStart
     ? new Date(new Date(weekStart).setDate(new Date(weekStart).getDate() + 6))
     : null;
@@ -62,9 +57,6 @@ export default function AttendanceMonitoring() {
     });
   };
 
-  // ============================================================
-  // LOAD ATTENDANCE SESSIONS FOR ALL CLASSES
-  // ============================================================
   const fetchSessions = async () => {
     setLoading(true);
     try {
@@ -76,11 +68,6 @@ export default function AttendanceMonitoring() {
       let allSessions = res.data.attendance_logs || [];
       allSessions.sort((a, b) => new Date(b.date) - new Date(a.date));
       setSessions(allSessions);
-
-      if (res.data.message) {
-        console.log(res.data.message);
-      }
-
     } catch (err) {
       console.error("Fetch error:", err);
       toast.error("Failed to load attendance sessions.");
@@ -93,32 +80,18 @@ export default function AttendanceMonitoring() {
     fetchSessions();
   }, []);
 
-  // ============================================================
-  // FILTER LOGIC
-  // ============================================================
   useEffect(() => {
     let filtered = [...sessions];
 
-    if (selectedClass)
-      filtered = filtered.filter((s) => s.class_id === selectedClass);
-
-    if (selectedSemester)
-      filtered = filtered.filter((s) => s.semester === selectedSemester);
-
-    if (selectedInstructor)
+    if (selectedClass) filtered = filtered.filter((s) => s.class_id === selectedClass);
+    if (selectedSemester) filtered = filtered.filter((s) => s.semester === selectedSemester);
+    if (selectedInstructor) {
       filtered = filtered.filter(
-        (s) =>
-          `${s.instructor_first_name} ${s.instructor_last_name}` === selectedInstructor
+        (s) => `${s.instructor_first_name} ${s.instructor_last_name}` === selectedInstructor
       );
-
-    if (selectedSchoolYear)
-      filtered = filtered.filter((s) => s.school_year === selectedSchoolYear);
-
-    if (selectedMonth)
-      filtered = filtered.filter(
-        (s) => new Date(s.date).getMonth() + 1 === Number(selectedMonth)
-      );
-
+    }
+    if (selectedSchoolYear) filtered = filtered.filter((s) => s.school_year === selectedSchoolYear);
+    if (selectedMonth) filtered = filtered.filter((s) => new Date(s.date).getMonth() + 1 === Number(selectedMonth));
     if (weekStart) {
       const start = new Date(weekStart);
       const end = weekEnd;
@@ -131,9 +104,6 @@ export default function AttendanceMonitoring() {
     setFilteredSessions(filtered);
   }, [sessions, selectedClass, selectedInstructor, selectedSemester, selectedSchoolYear, selectedMonth, weekStart]);
 
-  // ============================================================
-  // GROUP SESSIONS BY CLASS
-  // ============================================================
   const groupedByClass = filteredSessions.reduce((acc, s) => {
     if (!acc[s.class_id]) {
       acc[s.class_id] = {
@@ -154,9 +124,6 @@ export default function AttendanceMonitoring() {
     return acc;
   }, {});
 
-  // ============================================================
-  // EXPORT PDF
-  // ============================================================
   const exportToPDF = () => {
     if (filteredSessions.length === 0) {
       toast.warn("No attendance to export.");
@@ -169,117 +136,58 @@ export default function AttendanceMonitoring() {
 
     Object.keys(groupedByClass).forEach((classId) => {
       const group = groupedByClass[classId];
-      const sessions = group.rows.sort(
-        (a, b) => new Date(a.date) - new Date(b.date)
-      );
+      const sessions = group.rows.sort((a, b) => new Date(a.date) - new Date(b.date));
 
       if (!isFirstPage) doc.addPage();
       isFirstPage = false;
 
       const studentMap = {};
-
       sessions.forEach((session) => {
         (session.students || []).forEach((stud) => {
-          const fullName =
-            stud.student_name ||
-            `${formatName(stud.last_name || "")}, ${formatName(stud.first_name || "")}`;
-
+          const fullName = stud.student_name || `${formatName(stud.last_name || "")}, ${formatName(stud.first_name || "")}`;
           if (!studentMap[stud.student_id]) {
-            studentMap[stud.student_id] = {
-              id: stud.student_id,
-              name: fullName,
-              logs: {},
-            };
+            studentMap[stud.student_id] = { id: stud.student_id, name: fullName, logs: {} };
           }
-
           studentMap[stud.student_id].logs[session.date] = stud.status;
         });
       });
 
       const dateColumns = sessions.map((s) => s.date);
       const tableHead = [["Student Name", ...dateColumns]];
-
       const tableBody = Object.values(studentMap).map((stud) => {
         const row = [stud.name];
-
         dateColumns.forEach((date) => {
           const status = stud.logs[date] || "";
-          row.push(
-            status === "Present"
-              ? "P"
-              : status === "Late"
-              ? "L"
-              : status === "Absent"
-              ? "A"
-              : ""
-          );
+          row.push(status === "Present" ? "P" : status === "Late" ? "L" : status === "Absent" ? "A" : "");
         });
-
         return row;
       });
 
       doc.addImage("/prmsu.png", "PNG", 15, 8, 20, 20);
       doc.addImage("/ccit-logo.png", "PNG", width - 35, 8, 20, 20);
 
-      doc.setFont("times", "bold");
-      doc.setFontSize(14);
-      doc.text(
-        "PRESIDENT RAMON MAGSAYSAY STATE UNIVERSITY",
-        width / 2,
-        20,
-        { align: "center" }
-      );
-
+      doc.setFont("times", "bold"); doc.setFontSize(14);
+      doc.text("PRESIDENT RAMON MAGSAYSAY STATE UNIVERSITY", width / 2, 20, { align: "center" });
       doc.setFontSize(12);
-      doc.text(
-        "College of Communication and Information Technology",
-        width / 2,
-        28,
-        { align: "center" }
-      );
-
-      doc.setFont("times", "italic");
-      doc.setFontSize(11);
-      doc.text(
-        "(Ramon Magsaysay Technological University)",
-        width / 2,
-        33,
-        { align: "center" }
-      );
-
+      doc.text("College of Communication and Information Technology", width / 2, 28, { align: "center" });
+      doc.setFont("times", "italic"); doc.setFontSize(11);
+      doc.text("(Ramon Magsaysay Technological University)", width / 2, 33, { align: "center" });
       doc.text("Iba, Zambales", width / 2, 38, { align: "center" });
 
-      doc.setFontSize(16);
-      doc.setTextColor(10, 58, 35);
+      doc.setFontSize(16); doc.setTextColor(10, 58, 35);
       doc.text("ATTENDANCE REPORT", width / 2, 48, { align: "center" });
       doc.setTextColor(0, 0, 0);
 
       const meta = group.meta;
-
-      doc.setFont("times", "normal");
-      doc.setFontSize(11);
-      doc.text(
-        `Instructor: ${meta.instructor_first_name} ${meta.instructor_last_name}`,
-        15,
-        55
-      );
-      doc.text(
-        `Subject: ${meta.subject_code} — ${meta.subject_title}`,
-        15,
-        62
-      );
-      doc.text(
-        `Course & Section: ${meta.course} — ${meta.section}`,
-        15,
-        69
-      );
+      doc.setFont("times", "normal"); doc.setFontSize(11);
+      doc.text(`Instructor: ${meta.instructor_first_name} ${meta.instructor_last_name}`, 15, 55);
+      doc.text(`Subject: ${meta.subject_code} — ${meta.subject_title}`, 15, 62);
+      doc.text(`Course & Section: ${meta.course} — ${meta.section}`, 15, 69);
       doc.text(`Semester: ${meta.semester}`, 15, 76);
       doc.text(`School Year: ${meta.school_year}`, 15, 83);
 
       autoTable(doc, {
-        startY: 95,
-        head: tableHead,
-        body: tableBody,
+        startY: 95, head: tableHead, body: tableBody,
         styles: { fontSize: 9, halign: "center" },
         headStyles: { fillColor: [10, 58, 35], textColor: 255 },
         columnStyles: { 0: { halign: "left" } },
@@ -298,10 +206,10 @@ export default function AttendanceMonitoring() {
   };
 
   return (
-    <div className="space-y-12 px-4">
+    <div className="space-y-12 px-4 bg-[#F5F3F0] min-h-screen py-10">
       
-      {/* 1. TYPOGRAPHY HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+      {/* 1. COMPACT PREMIUM HEADER WITH ALIGNED CONTROLS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-4 border-b border-[#0A3A23]/5">
         <div>
           <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">
             Attendance Monitoring
@@ -310,144 +218,36 @@ export default function AttendanceMonitoring() {
             Real-time Academic Logs & Analytics
           </p>
         </div>
-      </div>
 
-      {/* 2. CONTROLS / FILTERS TOOLBAR */}
-      <div className="bg-white p-6 rounded-[28px] border border-[#0A3A23]/10 shadow-[0_25px_60px_rgba(10,58,35,0.03)] space-y-4">
-        
-        {/* ROW 1 */}
-        <div className="flex flex-wrap gap-4">
-          {/* CLASS FILTER */}
-          <div className="flex-1 min-w-[200px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
-            >
-              <option value="">All Classes</option>
-              {[...new Map(
-                sessions.map(s => [
-                  s.class_id,
-                  {
-                    class_id: s.class_id,
-                    subject_code: s.subject_code,
-                    course: s.course,
-                    section: s.section,
-                  }
-                ])
-              ).values()].map(cls => (
-                <option key={cls.class_id} value={cls.class_id}>
-                  {cls.subject_code} — {cls.course} {cls.section}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
-          </div>
+        {/* Action Controls Toolbar on Right Side */}
+        <div className="flex items-center gap-3">
+          {/* Trigger Button to Show Filter Modal */}
+          <button
+            onClick={() => setShowFilterModal(true)}
+            className="flex items-center justify-center gap-2 px-3 py-3 bg-white border border-[#0A3A23]/10 hover:border-[#008C45]/30 text-[#0A3A23] font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5"
+          >
+            <FaSlidersH size={13} className="text-[#008C45]" /> 
+          </button>
 
-          {/* INSTRUCTOR FILTER */}
-          <div className="flex-1 min-w-[200px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
-            <select
-              value={selectedInstructor}
-              onChange={(e) => setSelectedInstructor(e.target.value)}
-              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
-            >
-              <option value="">All Instructors</option>
-              {[...new Map(
-                sessions.map((s) => [
-                  `${s.instructor_first_name} ${s.instructor_last_name}`,
-                  {
-                    name: `${s.instructor_first_name} ${s.instructor_last_name}`,
-                    id: s.instructor_id
-                  }
-                ])
-              ).values()].map((ins) => (
-                <option key={ins.id} value={ins.name}>
-                  {ins.name}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
-          </div>
-
-          {/* SEMESTER FILTER */}
-          <div className="flex-1 min-w-[180px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
-            <select
-              value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
-              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
-            >
-              <option value="">All Semesters</option>
-              <option value="1st Sem">1st Semester</option>
-              <option value="2nd Sem">2nd Semester</option>
-              <option value="Summer">Mid Year</option>
-            </select>
-            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
-          </div>
-        </div>
-
-        {/* ROW 2 */}
-        <div className="flex flex-wrap gap-4 items-center">
-          {/* SCHOOL YEAR FILTER */}
-          <div className="flex-1 min-w-[180px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
-            <select
-              value={selectedSchoolYear}
-              onChange={(e) => setSelectedSchoolYear(e.target.value)}
-              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
-            >
-              <option value="">All School Years</option>
-              {[...new Set(sessions.map((s) => s.school_year))].map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
-          </div>
-
-          {/* MONTH FILTER */}
-          <div className="flex-1 min-w-[180px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
-            >
-              <option value="">All Months</option>
-              {monthNames.map((m, i) => (
-                <option key={i} value={i + 1}>{m}</option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
-          </div>
-
-          {/* WEEK START PICKER */}
-          <div className="flex-1 min-w-[180px] flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
-            <DatePicker
-              selected={weekStart}
-              onChange={(d) => setWeekStart(d)}
-              placeholderText="Week Start"
-              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer"
-            />
-          </div>
-
-          {/* EXPORT BUTTON */}
+          {/* Export PDF Actions */}
           {filteredSessions.length > 0 && (
             <button
               onClick={exportToPDF}
-              className="ml-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#0A3A23] hover:bg-[#008C45] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5"
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-[#0A3A23] hover:bg-[#008C45] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5"
             >
-              <FaFilePdf size={14} /> Export PDF
+              <FaFilePdf size={13} /> Export PDF
             </button>
           )}
         </div>
       </div>
 
-      {/* 3. GROUPED TABLES DATA CONTAINER */}
+      {/* 2. GROUPED TABLES DATA CONTAINER */}
       {Object.keys(groupedByClass).length > 0 ? (
         <div className="space-y-12">
           {Object.entries(groupedByClass).map(([classId, group]) => (
             <div key={classId} className="space-y-4">
               
-              {/* TABLE METADATA BANNER */}
+              {/* Table Metadata Banner */}
               <div className="pl-2 space-y-1">
                 <h3 className="text-base font-black text-[#0A3A23] tracking-tight">
                   {group.meta.subject_code} — {group.meta.subject_title}
@@ -460,7 +260,7 @@ export default function AttendanceMonitoring() {
                 </p>
               </div>
 
-              {/* DATA GRID TABLE */}
+              {/* Data Grid Table */}
               <div className="overflow-hidden bg-white rounded-[32px] border border-[#0A3A23]/10 shadow-[0_20px_50px_rgba(10,58,35,0.04)]">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -472,32 +272,25 @@ export default function AttendanceMonitoring() {
                       <th className="px-8 py-5 text-center w-24">Action</th>
                     </tr>
                   </thead>
-
                   <tbody className="divide-y divide-[#0A3A23]/5 bg-white text-[#0A3A23]/90">
                     {group.rows.map((session) => (
                       <tr key={session._id} className="hover:bg-[#F5F3F0]/40 transition-all duration-200">
-                        <td className="px-8 py-5 font-bold text-xs">
-                          {formatLongDate(session.date)}
-                        </td>
-
+                        <td className="px-8 py-5 font-bold text-xs">{formatLongDate(session.date)}</td>
                         <td className="px-6 py-5 text-center">
                           <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-[#008C45]/10 text-[#008C45]">
                             {session.students.filter((s) => s.status === "Present").length}
                           </span>
                         </td>
-
                         <td className="px-6 py-5 text-center">
                           <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 text-amber-700">
                             {session.students.filter((s) => s.status === "Late").length}
                           </span>
                         </td>
-
                         <td className="px-6 py-5 text-center">
                           <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-red-100 text-red-700">
                             {session.students.filter((s) => s.status === "Absent").length}
                           </span>
                         </td>
-
                         <td className="px-8 py-5 text-center">
                           <button
                             onClick={() => setActiveSession(session)}
@@ -511,12 +304,11 @@ export default function AttendanceMonitoring() {
                   </tbody>
                 </table>
               </div>
-
             </div>
           ))}
         </div>
       ) : (
-        /* EMPTY STATE STATE BANNER */
+        /* Empty Data State State Banner */
         <div className="text-center bg-white border border-[#0A3A23]/5 rounded-[32px] py-16 text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest shadow-[0_20px_50px_rgba(10,58,35,0.02)]">
           <div className="flex flex-col items-center gap-2 justify-center">
             <FaExclamationTriangle size={16} className="text-[#0A3A23]/30" />
@@ -525,14 +317,30 @@ export default function AttendanceMonitoring() {
         </div>
       )}
 
-      {/* ADMIN MODAL COMPONENT CONTAINER */}
+      {/* 3. DEDICATED ATTENDANCE FILTER MODAL ROUTER */}
+      <AttendanceFilterModal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        sessions={sessions}
+        selectedClass={selectedClass}
+        setSelectedClass={setSelectedClass}
+        selectedInstructor={selectedInstructor}
+        setSelectedInstructor={setSelectedInstructor}
+        selectedSemester={selectedSemester}
+        setSelectedSemester={setSelectedSemester}
+        selectedSchoolYear={selectedSchoolYear}
+        setSelectedSchoolYear={setSelectedSchoolYear}
+        selectedMonth={selectedMonth}
+        setSelectedMonth={setSelectedMonth}
+        weekStart={weekStart}
+        setWeekStart={setWeekStart}
+      />
+
+      {/* Admin Info Log Modal */}
       {activeSession && (
         <div className="fixed inset-0 z-50 bg-[#0A3A23]/40 backdrop-blur-sm flex justify-center items-center p-4">
           <div className="bg-white p-8 rounded-[28px] w-full max-w-3xl shadow-[0_25px_60px_rgba(10,58,35,0.15)] border border-[#0A3A23]/10">  
-            <DailyLogsModalAdmin 
-              session={activeSession} 
-              onClose={() => setActiveSession(null)} 
-            />
+            <DailyLogsModalAdmin session={activeSession} onClose={() => setActiveSession(null)} />
           </div>
         </div>
       )}
