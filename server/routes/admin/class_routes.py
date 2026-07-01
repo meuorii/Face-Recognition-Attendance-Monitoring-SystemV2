@@ -135,14 +135,19 @@ def create_class():
 
     return jsonify({ "created_class": serialize_class(cls), "message": "Class Created Successfully" }), 200
 
-#Update Class
+# Update Class
 @admin_bp.route("/api/admin/update-class/<id>", methods=["PUT"])
 @jwt_required()
 def update_class(id):
     admin_program = _admin_program()
     data = request.get_json() or {}
 
-    cls = classes_col.find_one({"_id": ObjectId(id)})
+    try:
+        class_id = ObjectId(id)
+    except Exception:
+        return jsonify({"error": "Invalid class ID format"}), 400
+
+    cls = classes_col.find_one({"_id": class_id})
     if not cls:
         return jsonify({"error": "Class not found"}), 404
     
@@ -151,10 +156,12 @@ def update_class(id):
     
     update_data = {}
 
-    for field in ["section", "semester", "schedule_blocks"]:
+    # "semester" remains explicitly excluded here to prevent manual editing
+    for field in ["section", "schedule_blocks"]:
         if field in data:
             update_data[field] = data[field]
 
+    # Handle Instructor Update
     if "instructor_id" in data and data["instructor_id"]:
         instructor = instructors_col.find_one({"instructor_id": data["instructor_id"]})
         if not instructor:
@@ -164,19 +171,64 @@ def update_class(id):
         update_data["instructor_first_name"] = instructor["first_name"]
         update_data["instructor_last_name"] = instructor["last_name"]
 
-    if not update_data:
-        return jsonify({"error": "No valid fields provided"}), 400
+    # Build DB update operations
+    update_operations = {}
+    if update_data:
+        update_operations["$set"] = update_data
+
+    # 1. Handle Removing Students via Edit
+    if "remove_students" in data and isinstance(data["remove_students"], list):
+        # Extract student IDs to pull
+        ids_to_remove = [
+            s.get("student_id") if isinstance(s, dict) else s 
+            for s in data["remove_students"] if s
+        ]
+        # Remove None or empty string values
+        ids_to_remove = [sid for sid in ids_to_remove if sid]
+
+        if ids_to_remove:
+            update_operations["$pull"] = {
+                "students": {"student_id": {"$in": ids_to_remove}}
+            }
+
+    # 2. Handle Adding Students via Edit
+    if "add_students" in data and isinstance(data["add_students"], list):
+        new_students = []
+        existing_student_ids = {s["student_id"] for s in cls.get("students", [])}
+
+        for input_student in data["add_students"]:
+            sid = input_student.get("student_id")
+            if not sid:
+                continue
+            
+            # Avoid duplicate additions
+            if sid in existing_student_ids:
+                continue
+
+            # Skip if the student is simultaneously being removed in this request
+            if "ids_to_remove" in locals() and sid in ids_to_remove:
+                continue
+
+            stu = students_col.find_one({"student_id": sid})
+            if stu:
+                new_students.append({
+                    "student_id": sid,
+                    "first_name": stu.get("First_Name", "").strip(),
+                    "last_name": stu.get("Last_Name", "").strip(),
+                    "course": stu.get("Course") or cls["course"],
+                    "section": stu.get("Section") or cls["section"]
+                })
+
+        if new_students:
+            update_operations["$push"] = {"students": {"$each": new_students}}
+
+    if not update_operations:
+        return jsonify({"error": "No valid changes, additions, or removals provided"}), 400
     
     try:
-        result = classes_col.update_one(
-            {"_id": ObjectId(id)},
-            {"$set": update_data}
-        )
+        classes_col.update_one({"_id": class_id}, update_operations)
     except Exception as e:
-        return jsonify({"error": "Invalid class ID"}), 400
-    
-    if result.matched_count == 0:
-        return jsonify({"error": "Class not found"}), 404
+        return jsonify({"error": f"Failed to update class: {str(e)}"}), 500
     
     return jsonify({"message": "Class updated successfully"}), 200
 
@@ -439,3 +491,46 @@ def preview_class_pdf():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# Get Instructor of a specific Class
+@admin_bp.route("/api/admin/classes/<id>/instructor", methods=["GET"])
+@jwt_required()
+def get_class_instructor(id):
+    try:
+        admin_program = _admin_program()
+        cls = classes_col.find_one({"_id": ObjectId(id)})
+        
+        if not cls:
+            return jsonify({"error": "Class not found"}), 404
+            
+        if cls["course"].upper() != admin_program:
+            return jsonify({"error": "Forbidden: This class belongs to another program"}), 403
+
+        instructor_data = {
+            "instructor_id": cls.get("instructor_id"),
+            "first_name": cls.get("instructor_first_name"),
+            "last_name": cls.get("instructor_last_name")
+        }
+        return jsonify(instructor_data), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Invalid ID format or server error: {str(e)}"}), 400
+    
+# Get Students in a specific Class
+@admin_bp.route("/api/admin/classes/<id>/students", methods=["GET"])
+@jwt_required()
+def get_class_students(id):
+    try:
+        admin_program = _admin_program()
+        cls = classes_col.find_one({"_id": ObjectId(id)})
+        
+        if not cls:
+            return jsonify({"error": "Class not found"}), 404
+            
+        if cls["course"].upper() != admin_program:
+            return jsonify({"error": "Forbidden: This class belongs to another program"}), 403
+
+        return jsonify(cls.get("students", [])), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Invalid ID format or server error: {str(e)}"}), 400
