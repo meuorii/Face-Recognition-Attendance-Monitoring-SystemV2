@@ -143,6 +143,8 @@ const ClassManagementComponent = () => {
   const handleEdit = async () => {
     try {
       const token = localStorage.getItem("token");
+      
+      // Clean up the schedules configuration
       const cleanedScheduleBlocks = (editClass.schedule_blocks || [])
         .map((block) => ({
           ...block,
@@ -150,23 +152,45 @@ const ClassManagementComponent = () => {
         }))
         .filter((block) => block.days?.length || block.start || block.end);
 
+      // Find original pristine item from state to compute array adjustments
+      const originalClass = classes.find((c) => c._id === editClass._id);
+      
+      const originalStudentIds = originalClass 
+        ? (originalClass.students || []).map(s => s.student_id) 
+        : [];
+      
+      const updatedStudentIds = (editClass.students || []).map(s => s.student_id);
+
+      // Extract variations
+      const add_students = updatedStudentIds
+        .filter(id => !originalStudentIds.includes(id))
+        .map(id => ({ student_id: id }));
+
+      const remove_students = originalStudentIds
+        .filter(id => !updatedStudentIds.includes(id))
+        .map(id => ({ student_id: id }));
+
+      // Payload building (Strict configuration constraints applied)
+      const payload = {
+        section: editClass.section,
+        schedule_blocks: cleanedScheduleBlocks,
+        instructor_id: editClass.instructor_id || null,
+        add_students: add_students,
+        remove_students: remove_students
+      };
+
       await axios.put(
         `${API_URL}/api/admin/update-class/${editClass._id}`,
-        {
-          section: editClass.section,
-          semester: editClass.semester,
-          schedule_blocks: cleanedScheduleBlocks,
-          instructor_id: editClass.instructor_id || null,
-        },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      toast.success("✅ Class updated");
+      toast.success("✅ Class updated successfully");
       setEditClass(null);
       fetchClasses();
     } catch (err) {
       console.error(err);
-      toast.error("❌ Failed to update class");
+      toast.error(err.response?.data?.error || "❌ Failed to update class");
     }
   };
 
@@ -229,7 +253,7 @@ const ClassManagementComponent = () => {
                     <col className="w-[10%]" />
                     <col className="w-[10%]" />
                     <col className="w-[12%]" />
-                    <col className="w-[15%]" /> {/* Dinagdagan ang width ng Actions area */}
+                    <col className="w-[15%]" />
                   </colgroup>
                   <thead>
                     <tr className="bg-[#0A3A23] text-white text-[11px] font-black tracking-widest uppercase">
@@ -238,7 +262,7 @@ const ClassManagementComponent = () => {
                       <th className="px-8 py-6 text-left">Section</th>
                       <th className="px-8 py-6 text-center">Students</th>
                       <th className="px-8 py-6 text-left">Schedule</th>
-                      <th className="px-12 py-6 text-left">Actions</th> {/* Right-aligned header padding */}
+                      <th className="px-12 py-6 text-left">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#0A3A23]/5 bg-white text-[#0A3A23]/90">
@@ -298,6 +322,7 @@ const ClassManagementComponent = () => {
                             <div className="flex items-center justify-end gap-3">
                               {/* View Action Button */}
                               <button
+                                type="button"
                                 onClick={() => setSelectedClass(cls)}
                                 title="View Students Registered"
                                 className="p-3 rounded-xl border border-[#008C45]/10 bg-[#008C45]/5 text-[#008C45] transition-all duration-200 hover:bg-[#008C45] hover:text-white hover:shadow-md hover:-translate-y-0.5"
@@ -306,7 +331,8 @@ const ClassManagementComponent = () => {
                               </button>
                               {/* Edit Action Button */}
                               <button
-                                onClick={() => setEditClass(cls)}
+                                type="button"
+                                onClick={() => setEditClass(JSON.parse(JSON.stringify(cls)))}
                                 title="Modify parameters"
                                 className="p-3 rounded-xl border border-[#0A3A23]/10 bg-[#0A3A23]/5 text-[#0A3A23] transition-all duration-200 hover:bg-[#0A3A23] hover:text-white hover:shadow-md hover:-translate-y-0.5"
                               >
@@ -314,6 +340,7 @@ const ClassManagementComponent = () => {
                               </button>
                               {/* Delete Action Button */}
                               <button
+                                type="button"
                                 onClick={() => setDeleteClass(cls)}
                                 title="Remove configuration record"
                                 className="p-3 rounded-xl border border-red-600/10 bg-red-600/5 text-red-600 transition-all duration-200 hover:bg-red-600 hover:text-white hover:shadow-md hover:-translate-y-0.5"
