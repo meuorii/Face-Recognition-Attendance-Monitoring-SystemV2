@@ -86,21 +86,21 @@ const ViewStudentModal = ({ isOpen, onClose, student }) => {
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-8 bg-[#F5F3F0]/50 p-8 rounded-[28px] border border-[#0A3A23]/5">
               
               <div className="space-y-2 text-left">
-                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider block flex items-center gap-1.5">
+                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText size={12} className="text-[#008C45]" /> First Name
                 </span>
                 <span className="text-base font-extrabold text-[#0A3A23] block leading-tight">{firstName}</span>
               </div>
               
               <div className="space-y-2 text-left">
-                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider block flex items-center gap-1.5">
+                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText size={12} className="text-[#008C45]" /> Middle Name
                 </span>
                 <span className="text-base font-extrabold text-[#0A3A23] block leading-tight">{middleName || "—"}</span>
               </div>
               
               <div className="space-y-2 text-left">
-                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider block flex items-center gap-1.5">
+                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText size={12} className="text-[#008C45]" /> Last Name
                 </span>
                 <span className="text-base font-extrabold text-[#0A3A23] block leading-tight">{lastName}</span>
