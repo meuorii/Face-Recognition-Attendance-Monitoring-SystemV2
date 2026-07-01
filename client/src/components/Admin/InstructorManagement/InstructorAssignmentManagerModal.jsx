@@ -2,14 +2,15 @@ import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { 
-  UserSquare2, 
+  User, 
   X, 
   Layers, 
   Trash2, 
   BookOpen, 
   Plus, 
   ChevronDown, 
-  Loader2 
+  Loader2,
+  IdCard
 } from "lucide-react";
 import UnassignConfirmationModal from "./UnassignConfirmationModal";
 
@@ -32,10 +33,9 @@ const InstructorAssignmentManagerModal = ({ instructor, onClose }) => {
         `${API_URL}/api/admin/instructors/${instructor.instructor_id}/classes`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       setAssignedClasses(res.data.assigned_class || []);
     } catch (err) {
-      toast.error("Failed to load assigned classes.", err);
+      toast.error("Failed to load assigned classes.");
     }
   }, [instructor?.instructor_id]);
 
@@ -44,20 +44,19 @@ const InstructorAssignmentManagerModal = ({ instructor, onClose }) => {
       const token = localStorage.getItem("token");
       const res = await axios.get(`${API_URL}/api/admin/classes/free`, {
         headers: { Authorization: `Bearer ${token}` },
-      })
-
+      });
       setFreeClasses(res.data || []);
     } catch (err) {
-      toast.error("Failed to load available classes.", err);
+      toast.error("Failed to load available classes.");
     }
-  }, []) 
+  }, []); 
 
   useEffect(() => {
     if (instructor) {
       fetchAssignedClasses();
       fetchFreeClasses();
     }
-  }, [instructor, fetchAssignedClasses, fetchFreeClasses])
+  }, [instructor, fetchAssignedClasses, fetchFreeClasses]);
 
   const assignClass = async () => {
     if (!selectedClass) return toast.warn("Please select a class first.");
@@ -74,7 +73,7 @@ const InstructorAssignmentManagerModal = ({ instructor, onClose }) => {
       fetchAssignedClasses();
       fetchFreeClasses();
     } catch (err) {
-      toast.error("Assignment failed.", err);
+      toast.error("Assignment failed.");
     } finally {
       setIsActionLoading(false);
     }
@@ -83,170 +82,202 @@ const InstructorAssignmentManagerModal = ({ instructor, onClose }) => {
   const handleInitiateRemove = (cls) => {
     setClassToUnassign(cls);
     setIsConfirmOpen(true);
-  }
+  };
 
   const handleFinalUnassign = async () => {
     if (!classToUnassign) return;
 
     try {
       const token = localStorage.getItem("token");
-      await axios.put(`${API_URL}/api/admin/classes/${classToUnassign._id}/remove-instructor`, {},
+      await axios.put(
+        `${API_URL}/api/admin/classes/${classToUnassign._id}/remove-instructor`, 
+        {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("Class unassigned successfully.");
       fetchAssignedClasses();
       fetchFreeClasses();
     } catch (err) {
-      toast.error("Failed to remove class.", err);
+      toast.error("Failed to remove class.");
     } finally {
       setIsConfirmOpen(false);
       setClassToUnassign(null);
     }
-  }
+  };
+
+  // Proper Case Name Formatter
+  const formatName = (name) => {
+    if (!name) return "";
+    return name
+      .toLowerCase()
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  };
+
+  const firstName = formatName(instructor?.first_name);
+  const lastName = formatName(instructor?.last_name);
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
   return (
     <>
-      <div className="fixed inset-0 bg-[#050505]/60 backdrop-blur-md flex justify-center items-center z-50 p-4 transition-all duration-300">
-        <div className="bg-[#0a0a0a] text-white w-full max-w-2xl rounded-[2rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/5 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A3A23]/40 backdrop-blur-md animate-fadeIn px-6">
+        {/* Expanded Canvas Grid Layout Frame */}
+        <div className="bg-white w-full max-w-4xl min-h-[580px] rounded-[44px] shadow-[0_50px_110px_rgba(10,58,35,0.28)] border border-[#0A3A23]/10 overflow-hidden relative transform transition-all scale-100 max-h-[92vh] flex flex-col md:flex-row">
           
-          {/* Header Section */}
-          <div className="p-8 border-b border-white/5 bg-gradient-to-br from-emerald-500/[0.03] to-transparent flex justify-between items-center">
-            <div className="flex items-center gap-5">
-              <div className="h-16 w-16 rounded-2xl bg-neutral-900 flex items-center justify-center text-emerald-400 border border-white/10 shadow-inner">
-                <UserSquare2 size={32} strokeWidth={1.5} />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-2xl font-black tracking-tighter text-neutral-100 uppercase">
-                  {instructor.first_name} {instructor.last_name}
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-500 tracking-widest uppercase">
-                    Faculty Lead
-                  </span>
-                  <span className="text-neutral-600 font-mono text-[10px] tracking-widest">
-                    #{instructor.instructor_id}
-                  </span>
-                </div>
-              </div>
+          {/* Top Floating Close Trigger */}
+          <button
+            onClick={onClose}
+            className="absolute top-8 right-8 z-10 p-2.5 rounded-full text-[#0A3A23]/40 hover:text-[#0A3A23] hover:bg-[#F5F3F0] transition-all active:scale-95"
+          >
+            <X size={22} />
+          </button>
+
+          {/* LEFT DECK: Premium Profile Identity Display */}
+          <div className="md:w-1/3 bg-gradient-to-b from-[#0A3A23] to-[#005c2d] p-12 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0">
+            <div className="absolute -top-10 -left-10 w-36 h-36 bg-white/5 rounded-full pointer-events-none" />
+            <div className="absolute -bottom-10 -right-10 w-44 h-44 bg-white/5 rounded-full pointer-events-none" />
+
+            {/* Premium Branding Badge Avatar */}
+            <div className="w-32 h-32 rounded-[36px] bg-white text-[#0A3A23] flex items-center justify-center text-5xl font-black tracking-tighter shadow-2xl border-4 border-white/20 mb-8">
+              {initials || "IN"}
             </div>
-            <button 
-              onClick={onClose}
-              className="p-3 bg-neutral-900 hover:bg-neutral-800 rounded-xl text-neutral-500 hover:text-white transition-all border border-white/5"
-            >
-              <X size={20} strokeWidth={2} />
-            </button>
+
+            {/* Simple Workspace Role Badge */}
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 mb-10 backdrop-blur-md">
+              <User size={12} className="text-white" /> Instructor
+            </span>
+
+            <h3 className="text-2xl font-black text-white tracking-tight leading-tight max-w-[200px] break-words">
+              {lastName}
+            </h3>
+            <p className="text-sm font-medium text-white/70 mt-2 max-w-[200px] break-words">
+              {firstName}
+            </p>
           </div>
 
-          {/* Content Section - Scrollable */}
-          <div className="p-8 overflow-y-auto space-y-10 custom-scrollbar bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/[0.01] via-transparent to-transparent">
+          {/* RIGHT DECK: Dual Section Operational Dashboard */}
+          <div className="flex-1 p-12 md:p-14 space-y-10 overflow-y-auto flex flex-col justify-between">
             
-            {/* Assigned Classes List */}
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-500/10 rounded-lg">
-                    <Layers className="text-emerald-500" size={18} strokeWidth={2.5} />
-                  </div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-400">Current Workload</h3>
-                </div>
-                <span className="bg-neutral-900 text-neutral-500 text-[10px] font-bold px-3 py-1 rounded-full border border-white/5">
-                  {assignedClasses.length} Subjects
-                </span>
-              </div>
+            {/* Header Content Titles */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-[#008C45] uppercase tracking-widest flex items-center gap-1.5">
+                <IdCard size={12} /> ID #{instructor?.instructor_id}
+              </span>
+              <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">Manage Classes</h2>
+            </div>
 
-              <div className="grid gap-4">
-                {assignedClasses.length > 0 ? (
-                  assignedClasses.map((cls) => (
-                    <div
-                      key={cls._id}
-                      className="group relative flex justify-between items-center bg-neutral-900/40 border border-white/5 p-5 rounded-2xl hover:border-emerald-500/30 transition-all duration-300"
-                    >
-                      <div className="flex flex-col gap-1.5 relative z-10">
-                        <div className="flex items-center gap-3">
-                          <span className="text-emerald-400 font-black text-sm tracking-widest">
-                            {cls.subject_code}
-                          </span>
-                          <span className="h-1 w-1 rounded-full bg-neutral-700"></span>
-                          <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-tight">
-                            {cls.course} {cls.year_level}{cls.section}
+            {/* Interactive Inner Sections Block */}
+            <div className="space-y-8 flex-1 mt-2">
+              
+              {/* SECTION A: Current Active Workload */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-[#0A3A23]/5 pb-2">
+                  <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers size={14} className="text-[#008C45]" /> Active Assignments
+                  </span>
+                  <span className="bg-[#0A3A23]/5 text-[#008C45] text-[10px] font-black px-3 py-1 rounded-full border border-[#0A3A23]/5">
+                    {assignedClasses.length} Total
+                  </span>
+                </div>
+
+                <div className="grid gap-3 max-h-[220px] overflow-y-auto pr-1">
+                  {assignedClasses.length > 0 ? (
+                    assignedClasses.map((cls) => (
+                      <div
+                        key={cls._id}
+                        className="group relative flex justify-between items-center bg-[#F5F3F0]/60 border border-[#0A3A23]/5 p-5 rounded-2xl hover:bg-white hover:border-[#0A3A23]/20 hover:shadow-sm transition-all duration-300"
+                      >
+                        <div className="flex flex-col gap-1 text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#008C45] font-black text-sm tracking-wide">
+                              {cls.subject_code}
+                            </span>
+                            <span className="h-1 w-1 rounded-full bg-[#0A3A23]/20"></span>
+                            <span className="text-[10px] text-[#0A3A23]/50 font-extrabold uppercase">
+                              {cls.course} {cls.year_level}{cls.section}
+                            </span>
+                          </div>
+                          <span className="text-[#0A3A23] text-xs font-bold uppercase tracking-tight">
+                            {cls.subject_title}
                           </span>
                         </div>
-                        <span className="text-neutral-200 text-xs font-semibold uppercase tracking-wide">
-                          {cls.subject_title}
-                        </span>
+
+                        {/* Monochromatic Premium Clean Trash Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => handleInitiateRemove(cls)}
+                          className="p-2.5 bg-[#0A3A23]/5 text-[#0A3A23]/60 hover:text-white hover:bg-[#0A3A23] rounded-xl transition-all duration-300"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-
-                      <button
-                        onClick={() => handleInitiateRemove(cls)}
-                        className="opacity-0 group-hover:opacity-100 p-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all duration-300 transform translate-x-2 group-hover:translate-x-0"
-                      >
-                        <Trash2 size={16} strokeWidth={2} />
-                      </button>
-                      
-                      {/* Hover Glow Effect */}
-                      <div className="absolute inset-0 bg-emerald-500/[0.01] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 bg-neutral-900/20 rounded-[2rem] border border-dashed border-white/5">
-                    <div className="p-4 bg-neutral-900 rounded-full mb-4">
-                      <BookOpen className="text-neutral-700" size={28} strokeWidth={1} />
-                    </div>
-                    <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">No Active Assignments</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* New Assignment Section */}
-            <div className="relative p-6 bg-neutral-900/30 rounded-[2rem] border border-white/5">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-5 flex items-center gap-2">
-                <Plus className="text-emerald-500" size={14} strokeWidth={3} /> Quick Assign
-              </h3>
-
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="relative flex-1 w-full group">
-                  <select
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                    className="w-full bg-neutral-950 border border-white/10 px-5 py-4 rounded-2xl text-xs font-semibold text-neutral-300 appearance-none focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all cursor-pointer"
-                  >
-                    <option value="">Select an available subject...</option>
-                    {freeClasses.map((cls) => (
-                      <option key={cls._id} value={cls._id} className="bg-[#0a0a0a] py-4">
-                        {cls.subject_code} — {cls.subject_title} ({cls.course} {cls.year_level}{cls.section})
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-600 group-hover:text-emerald-500 transition-colors" size={16} />
-                </div>
-
-                <button
-                  disabled={!selectedClass || isActionLoading}
-                  onClick={assignClass}
-                  className={`w-full sm:w-auto px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all duration-500 ${
-                    !selectedClass 
-                      ? "bg-neutral-800 text-neutral-600 cursor-not-allowed border border-white/5" 
-                      : "bg-white text-black hover:bg-emerald-500 hover:text-white shadow-[0_20px_40px_rgba(0,0,0,0.3)] active:scale-95"
-                  }`}
-                >
-                  {isActionLoading ? (
-                    <Loader2 className="animate-spin" size={16} />
+                    ))
                   ) : (
-                    "Assign Load"
+                    <div className="flex flex-col items-center justify-center py-10 bg-[#F5F3F0]/30 rounded-2xl border border-dashed border-[#0A3A23]/10">
+                      <BookOpen className="text-[#0A3A23]/20 mb-2" size={24} />
+                      <p className="text-[#0A3A23]/40 text-[10px] font-black uppercase tracking-wider">No assigned subjects</p>
+                    </div>
                   )}
-                </button>
+                </div>
               </div>
+
+              {/* SECTION B: Quick Assign Interactive Dropdown Card */}
+              <div className="bg-[#F5F3F0]/50 p-6 rounded-[28px] border border-[#0A3A23]/5 space-y-4 text-left">
+                <span className="text-[10px] font-black text-[#0A3A23]/40 uppercase tracking-wider flex items-center gap-1.5">
+                  <Plus size={12} className="text-[#008C45]" /> Assign Class
+                </span>
+
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* Styled Input Dropdown Frame */}
+                  <div className="relative flex-1 w-full">
+                    <select
+                      value={selectedClass}
+                      onChange={(e) => setSelectedClass(e.target.value)}
+                      className="w-full bg-white border border-[#0A3A23]/10 px-5 py-3.5 rounded-xl text-xs font-bold text-[#0A3A23] appearance-none outline-none focus:border-[#008C45] focus:shadow-sm transition-all cursor-pointer pr-12"
+                    >
+                      <option value="">Select an available subject...</option>
+                      {freeClasses.map((cls) => (
+                        <option key={cls._id} value={cls._id}>
+                          {cls.subject_code} — {cls.subject_title} ({cls.course} {cls.year_level}{cls.section})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#0A3A23]/40" size={16} />
+                  </div>
+
+                  {/* Operational Action Button */}
+                  <button
+                    type="button"
+                    disabled={!selectedClass || isActionLoading}
+                    onClick={assignClass}
+                    className={`w-full sm:w-auto px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 ${
+                      !selectedClass 
+                        ? "bg-[#0A3A23]/5 text-[#0A3A23]/30 cursor-not-allowed border border-[#0A3A23]/5" 
+                        : "bg-[#0A3A23] text-white hover:bg-[#005c2d] shadow-md shadow-[#0A3A23]/10 active:scale-98"
+                    }`}
+                  >
+                    {isActionLoading ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      "Add Load"
+                    )}
+                  </button>
+                </div>
+              </div>
+
             </div>
+
           </div>
+
         </div>
       </div>
 
       <UnassignConfirmationModal 
-          isOpen={isConfirmOpen}
-          onClose={() => setIsConfirmOpen(false)}
-          onConfirm={handleFinalUnassign}
-          classData={classToUnassign}
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleFinalUnassign}
+        classData={classToUnassign}
       />
     </>
   );
