@@ -7,7 +7,7 @@ import autoTable from "jspdf-autotable";
 import axios from "axios";
 
 import { toast } from "react-toastify";
-import { FaClipboardList, FaListUl, FaFilePdf } from "react-icons/fa";
+import { FaListUl, FaFilePdf, FaExclamationTriangle } from "react-icons/fa";
 
 import DailyLogsModalAdmin from "../Admin/DailyLogsModalAdmin";
 
@@ -83,16 +83,15 @@ export default function AttendanceMonitoring() {
 
     } catch (err) {
       console.error("Fetch error:", err);
-      toast.error("❌ Failed to load attendance sessions.");
+      toast.error("Failed to load attendance sessions.");
     } finally {
       setLoading(false);
     }
   }
 
-// Load once (Admin does NOT depend on classes)
-useEffect(() => {
-  fetchSessions();
-}, []);
+  useEffect(() => {
+    fetchSessions();
+  }, []);
 
   // ============================================================
   // FILTER LOGIC
@@ -158,390 +157,378 @@ useEffect(() => {
   // ============================================================
   // EXPORT PDF
   // ============================================================
-  // ============================================================
-// ADMIN EXPORT PDF (Updated to Match Instructor Report Design)
-// ============================================================
-const exportToPDF = () => {
-  if (filteredSessions.length === 0) {
-    toast.warn("No attendance to export.");
-    return;
-  }
+  const exportToPDF = () => {
+    if (filteredSessions.length === 0) {
+      toast.warn("No attendance to export.");
+      return;
+    }
 
-  const doc = new jsPDF("l", "mm", "a3");
-  const width = doc.internal.pageSize.getWidth();
-  let isFirstPage = true;
+    const doc = new jsPDF("l", "mm", "a3");
+    const width = doc.internal.pageSize.getWidth();
+    let isFirstPage = true;
 
-  // Loop through each CLASS group
-  Object.keys(groupedByClass).forEach((classId) => {
-    const group = groupedByClass[classId];
-    const sessions = group.rows.sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
-    );
+    Object.keys(groupedByClass).forEach((classId) => {
+      const group = groupedByClass[classId];
+      const sessions = group.rows.sort(
+        (a, b) => new Date(a.date) - new Date(b.date)
+      );
 
-    if (!isFirstPage) doc.addPage();
-    isFirstPage = false;
+      if (!isFirstPage) doc.addPage();
+      isFirstPage = false;
 
-    // ===================================
-    // BUILD STUDENT LOG MATRIX
-    // ===================================
-    const studentMap = {};
+      const studentMap = {};
 
-    sessions.forEach((session) => {
-      (session.students || []).forEach((stud) => {
-        const fullName =
-          stud.student_name ||
-          `${formatName(stud.last_name || "")}, ${formatName(stud.first_name || "")}`;
+      sessions.forEach((session) => {
+        (session.students || []).forEach((stud) => {
+          const fullName =
+            stud.student_name ||
+            `${formatName(stud.last_name || "")}, ${formatName(stud.first_name || "")}`;
 
-        if (!studentMap[stud.student_id]) {
-          studentMap[stud.student_id] = {
-            id: stud.student_id,
-            name: fullName,
-            logs: {},
-          };
-        }
+          if (!studentMap[stud.student_id]) {
+            studentMap[stud.student_id] = {
+              id: stud.student_id,
+              name: fullName,
+              logs: {},
+            };
+          }
 
-        studentMap[stud.student_id].logs[session.date] = stud.status;
+          studentMap[stud.student_id].logs[session.date] = stud.status;
+        });
+      });
+
+      const dateColumns = sessions.map((s) => s.date);
+      const tableHead = [["Student Name", ...dateColumns]];
+
+      const tableBody = Object.values(studentMap).map((stud) => {
+        const row = [stud.name];
+
+        dateColumns.forEach((date) => {
+          const status = stud.logs[date] || "";
+          row.push(
+            status === "Present"
+              ? "P"
+              : status === "Late"
+              ? "L"
+              : status === "Absent"
+              ? "A"
+              : ""
+          );
+        });
+
+        return row;
+      });
+
+      doc.addImage("/prmsu.png", "PNG", 15, 8, 20, 20);
+      doc.addImage("/ccit-logo.png", "PNG", width - 35, 8, 20, 20);
+
+      doc.setFont("times", "bold");
+      doc.setFontSize(14);
+      doc.text(
+        "PRESIDENT RAMON MAGSAYSAY STATE UNIVERSITY",
+        width / 2,
+        20,
+        { align: "center" }
+      );
+
+      doc.setFontSize(12);
+      doc.text(
+        "College of Communication and Information Technology",
+        width / 2,
+        28,
+        { align: "center" }
+      );
+
+      doc.setFont("times", "italic");
+      doc.setFontSize(11);
+      doc.text(
+        "(Ramon Magsaysay Technological University)",
+        width / 2,
+        33,
+        { align: "center" }
+      );
+
+      doc.text("Iba, Zambales", width / 2, 38, { align: "center" });
+
+      doc.setFontSize(16);
+      doc.setTextColor(10, 58, 35);
+      doc.text("ATTENDANCE REPORT", width / 2, 48, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+
+      const meta = group.meta;
+
+      doc.setFont("times", "normal");
+      doc.setFontSize(11);
+      doc.text(
+        `Instructor: ${meta.instructor_first_name} ${meta.instructor_last_name}`,
+        15,
+        55
+      );
+      doc.text(
+        `Subject: ${meta.subject_code} — ${meta.subject_title}`,
+        15,
+        62
+      );
+      doc.text(
+        `Course & Section: ${meta.course} — ${meta.section}`,
+        15,
+        69
+      );
+      doc.text(`Semester: ${meta.semester}`, 15, 76);
+      doc.text(`School Year: ${meta.school_year}`, 15, 83);
+
+      autoTable(doc, {
+        startY: 95,
+        head: tableHead,
+        body: tableBody,
+        styles: { fontSize: 9, halign: "center" },
+        headStyles: { fillColor: [10, 58, 35], textColor: 255 },
+        columnStyles: { 0: { halign: "left" } },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index > 0) {
+            const val = data.cell.raw;
+            if (val === "A") data.cell.styles.textColor = [220, 38, 38];
+            if (val === "L") data.cell.styles.textColor = [245, 158, 11];
+            if (val === "P") data.cell.styles.textColor = [0, 140, 69];
+          }
+        },
       });
     });
 
-    const dateColumns = sessions.map((s) => s.date);
-    const tableHead = [["Student Name", ...dateColumns]];
+    doc.save("Admin_Attendance_Report.pdf");
+  };
 
-    const tableBody = Object.values(studentMap).map((stud) => {
-      const row = [stud.name];
-
-      dateColumns.forEach((date) => {
-        const status = stud.logs[date] || "";
-        row.push(
-          status === "Present"
-            ? "P"
-            : status === "Late"
-            ? "L"
-            : status === "Absent"
-            ? "A"
-            : ""
-        );
-      });
-
-      return row;
-    });
-
-    // ===================================
-    // HEADER + UNIVERSITY INFO (NEW)
-    // ===================================
-    doc.addImage("/prmsu.png", "PNG", 15, 8, 20, 20);
-    doc.addImage("/ccit-logo.png", "PNG", width - 35, 8, 20, 20);
-
-    // University Name
-    doc.setFont("times", "bold");
-    doc.setFontSize(14);
-    doc.text(
-      "PRESIDENT RAMON MAGSAYSAY STATE UNIVERSITY",
-      width / 2,
-      20,
-      { align: "center" }
-    );
-
-    // College
-    doc.setFontSize(12);
-    doc.text(
-      "College of Communication and Information Technology",
-      width / 2,
-      28,
-      { align: "center" }
-    );
-
-    // Former Name
-    doc.setFont("times", "italic");
-    doc.setFontSize(11);
-    doc.text(
-      "(Ramon Magsaysay Technological University)",
-      width / 2,
-      33,
-      { align: "center" }
-    );
-
-    doc.text("Iba, Zambales", width / 2, 38, { align: "center" });
-
-    // Report Title
-    doc.setFontSize(16);
-    doc.setTextColor(34, 197, 94);
-    doc.text("ATTENDANCE REPORT", width / 2, 48, { align: "center" });
-    doc.setTextColor(0, 0, 0);
-
-    // ===================================
-    // METADATA FROM ADMIN DATA
-    // ===================================
-    const meta = group.meta;
-
-    doc.setFont("times", "normal");
-    doc.setFontSize(11);
-    doc.text(
-      `Instructor: ${meta.instructor_first_name} ${meta.instructor_last_name}`,
-      15,
-      55
-    );
-    doc.text(
-      `Subject: ${meta.subject_code} — ${meta.subject_title}`,
-      15,
-      62
-    );
-    doc.text(
-      `Course & Section: ${meta.course} — ${meta.section}`,
-      15,
-      69
-    );
-    doc.text(`Semester: ${meta.semester}`, 15, 76);
-    doc.text(`School Year: ${meta.school_year}`, 15, 83);
-
-    // ===================================
-    // TABLE STYLING & GENERATION
-    // ===================================
-    autoTable(doc, {
-      startY: 95,
-      head: tableHead,
-      body: tableBody,
-      styles: { fontSize: 9, halign: "center" },
-      headStyles: { fillColor: [34, 197, 94], textColor: 255 },
-      columnStyles: { 0: { halign: "left" } },
-      didParseCell: (data) => {
-        if (data.section === "body" && data.column.index > 0) {
-          const val = data.cell.raw;
-          if (val === "A") data.cell.styles.textColor = [255, 0, 0];
-          if (val === "L") data.cell.styles.textColor = [255, 165, 0];
-          if (val === "P") data.cell.styles.textColor = [0, 150, 0];
-        }
-      },
-    });
-  });
-
-  doc.save("Admin_Attendance_Report.pdf");
-};
-
-
-  // ============================================================
-  // UI
-  // ============================================================
   return (
-    <div className="p-8 bg-neutral-950 rounded-2xl shadow-xl space-y-8">
-      <div className="flex items-center gap-3">
-        <FaClipboardList className="text-green-400 text-3xl" />
-        <h2 className="text-3xl font-bold text-emerald-400">Attendance Monitoring</h2>
+    <div className="space-y-12 px-4">
+      
+      {/* 1. TYPOGRAPHY HEADER */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+        <div>
+          <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">
+            Attendance Monitoring
+          </h2>
+          <p className="text-[11px] text-[#008C45] font-extrabold tracking-widest uppercase mt-1">
+            Real-time Academic Logs & Analytics
+          </p>
+        </div>
       </div>
 
-      {/* FILTER TOOLBAR */}
-      <div className="bg-neutral-950 p-2 rounded-xl space-y-3">
-
+      {/* 2. CONTROLS / FILTERS TOOLBAR */}
+      <div className="bg-white p-6 rounded-[28px] border border-[#0A3A23]/10 shadow-[0_25px_60px_rgba(10,58,35,0.03)] space-y-4">
+        
         {/* ROW 1 */}
         <div className="flex flex-wrap gap-4">
-
           {/* CLASS FILTER */}
-          <select
-            value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
-            className="flex-1 min-w-[180px] px-4 py-2 bg-neutral-900 border border-neutral-700 
-                      text-white rounded-md focus:outline-none focus:border-emerald-500"
-          >
-            <option value="">All Classes</option>
-
-            {[...new Map(
-              sessions.map(s => [
-                s.class_id,
-                {
-                  class_id: s.class_id,
-                  subject_code: s.subject_code,
-                  course: s.course,
-                  section: s.section,
-                }
-              ])
-            ).values()].map(cls => (
-              <option key={cls.class_id} value={cls.class_id}>
-                {cls.subject_code} — {cls.course} {cls.section}
-              </option>
-            ))}
-          </select>
+          <div className="flex-1 min-w-[200px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
+            >
+              <option value="">All Classes</option>
+              {[...new Map(
+                sessions.map(s => [
+                  s.class_id,
+                  {
+                    class_id: s.class_id,
+                    subject_code: s.subject_code,
+                    course: s.course,
+                    section: s.section,
+                  }
+                ])
+              ).values()].map(cls => (
+                <option key={cls.class_id} value={cls.class_id}>
+                  {cls.subject_code} — {cls.course} {cls.section}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
+          </div>
 
           {/* INSTRUCTOR FILTER */}
-          <select
-            value={selectedInstructor}
-            onChange={(e) => setSelectedInstructor(e.target.value)}
-            className="flex-1 min-w-[180px] px-4 py-2 bg-neutral-900 border border-neutral-700 
-                      text-white rounded-md focus:outline-none focus:border-emerald-500"
-          >
-            <option value="">All Instructors</option>
-
-            {[...new Map(
-              sessions.map((s) => [
-                `${s.instructor_first_name} ${s.instructor_last_name}`,
-                {
-                  name: `${s.instructor_first_name} ${s.instructor_last_name}`,
-                  id: s.instructor_id
-                }
-              ])
-            ).values()].map((ins) => (
-              <option key={ins.id} value={ins.name}>
-                {ins.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex-1 min-w-[200px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
+            <select
+              value={selectedInstructor}
+              onChange={(e) => setSelectedInstructor(e.target.value)}
+              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
+            >
+              <option value="">All Instructors</option>
+              {[...new Map(
+                sessions.map((s) => [
+                  `${s.instructor_first_name} ${s.instructor_last_name}`,
+                  {
+                    name: `${s.instructor_first_name} ${s.instructor_last_name}`,
+                    id: s.instructor_id
+                  }
+                ])
+              ).values()].map((ins) => (
+                <option key={ins.id} value={ins.name}>
+                  {ins.name}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
+          </div>
 
           {/* SEMESTER FILTER */}
-          <select
-            value={selectedSemester}
-            onChange={(e) => setSelectedSemester(e.target.value)}
-            className="flex-1 min-w-[150px] px-4 py-2 bg-neutral-900 border border-neutral-700 
-                      text-white rounded-md focus:outline-none focus:border-emerald-500"
-          >
-            <option value="">All Semesters</option>
-            <option value="1st Sem">1st Semester</option>
-            <option value="2nd Sem">2nd Semester</option>
-            <option value="Summer">Mid Year</option>
-          </select>
-
+          <div className="flex-1 min-w-[180px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
+            <select
+              value={selectedSemester}
+              onChange={(e) => setSelectedSemester(e.target.value)}
+              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
+            >
+              <option value="">All Semesters</option>
+              <option value="1st Sem">1st Semester</option>
+              <option value="2nd Sem">2nd Semester</option>
+              <option value="Summer">Mid Year</option>
+            </select>
+            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
+          </div>
         </div>
 
         {/* ROW 2 */}
         <div className="flex flex-wrap gap-4 items-center">
-
           {/* SCHOOL YEAR FILTER */}
-          <select
-            value={selectedSchoolYear}
-            onChange={(e) => setSelectedSchoolYear(e.target.value)}
-            className="flex-1 min-w-[150px] px-4 py-2 bg-neutral-900 border border-neutral-700 
-                      text-white rounded-md focus:outline-none focus:border-emerald-500"
-          >
-            <option value="">All School Years</option>
-            {[...new Set(sessions.map((s) => s.school_year))].map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
+          <div className="flex-1 min-w-[180px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
+            <select
+              value={selectedSchoolYear}
+              onChange={(e) => setSelectedSchoolYear(e.target.value)}
+              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
+            >
+              <option value="">All School Years</option>
+              {[...new Set(sessions.map((s) => s.school_year))].map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
+          </div>
 
           {/* MONTH FILTER */}
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="flex-1 min-w-[140px] px-4 py-2 bg-neutral-900 border border-neutral-700 
-                      text-white rounded-md focus:outline-none focus:border-emerald-500"
-          >
-            <option value="">All Months</option>
-            {monthNames.map((m, i) => (
-              <option key={i} value={i + 1}>{m}</option>
-            ))}
-          </select>
+          <div className="flex-1 min-w-[180px] relative flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer appearance-none pr-4"
+            >
+              <option value="">All Months</option>
+              {monthNames.map((m, i) => (
+                <option key={i} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute right-4 text-[#0A3A23]/40 text-[10px]">▼</div>
+          </div>
 
           {/* WEEK START PICKER */}
-          <DatePicker
-            selected={weekStart}
-            onChange={(d) => setWeekStart(d)}
-            placeholderText="Week Start"
-            className="flex-1 min-w-[140px] px-4 py-2 bg-neutral-900 border border-neutral-700 
-                      text-white rounded-md focus:outline-none focus:border-emerald-500"
-          />
+          <div className="flex-1 min-w-[180px] flex items-center bg-[#F5F3F0]/50 border border-[#0A3A23]/10 rounded-xl px-4 focus-within:border-[#008C45] transition-all">
+            <DatePicker
+              selected={weekStart}
+              onChange={(d) => setWeekStart(d)}
+              placeholderText="Week Start"
+              className="w-full bg-transparent outline-none text-[#0A3A23] font-bold text-xs h-11 cursor-pointer"
+            />
+          </div>
 
-          {/* EXPORT BUTTON RIGHT SIDE */}
+          {/* EXPORT BUTTON */}
           {filteredSessions.length > 0 && (
             <button
               onClick={exportToPDF}
-              className="ml-auto px-6 py-2 bg-emerald-600 hover:bg-emerald-500 
-                        text-white rounded-lg flex items-center gap-2 shadow-md"
+              className="ml-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#0A3A23] hover:bg-[#008C45] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5"
             >
-              <FaFilePdf /> Export PDF
+              <FaFilePdf size={14} /> Export PDF
             </button>
           )}
         </div>
       </div>
 
-      {/* GROUPED TABLES */}
+      {/* 3. GROUPED TABLES DATA CONTAINER */}
       {Object.keys(groupedByClass).length > 0 ? (
-        <div className="space-y-10">
-
+        <div className="space-y-12">
           {Object.entries(groupedByClass).map(([classId, group]) => (
-            <div
-              key={classId}
-              className="bg-neutral-900/40 border border-white/10 rounded-xl p-6 shadow-lg"
-            >
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-white">
+            <div key={classId} className="space-y-4">
+              
+              {/* TABLE METADATA BANNER */}
+              <div className="pl-2 space-y-1">
+                <h3 className="text-base font-black text-[#0A3A23] tracking-tight">
                   {group.meta.subject_code} — {group.meta.subject_title}
                 </h3>
-                <p className="text-sm text-gray-400">
-                  {group.meta.course} · {group.meta.section} ·{" "}
-                  {semesterMap[group.meta.semester]} · {group.meta.school_year}
+                <p className="text-[11px] font-bold text-[#0A3A23]/60 uppercase tracking-wider">
+                  {group.meta.course} {group.meta.section} • {semesterMap[group.meta.semester]} • {group.meta.school_year}
                 </p>
-                <p className="text-sm text-gray-400">
-                  Instructor:{" "}
-                  <span className="text-emerald-400">
-                    {group.meta.instructor_first_name}{" "}
-                    {group.meta.instructor_last_name}
-                  </span>
+                <p className="text-[11px] font-bold text-[#008C45] uppercase tracking-wide">
+                  Instructor: {group.meta.instructor_first_name} {group.meta.instructor_last_name}
                 </p>
               </div>
 
-              <table className="w-full text-sm text-gray-300">
-                <thead className="bg-neutral-800 text-emerald-300">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-center">Present</th>
-                    <th className="px-4 py-3 text-center">Late</th>
-                    <th className="px-4 py-3 text-center">Absent</th>
-                    <th className="px-4 py-3 text-center">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {group.rows.map((session, i) => (
-                    <tr
-                      key={session._id}
-                      className={i % 2 ? "bg-neutral-900/40" : "bg-neutral-800/40"}
-                    >
-                      <td className="px-4 py-3">{formatLongDate(session.date)}</td>
-
-                      <td className="px-4 py-3 text-center">
-                        <span className="px-2 py-1 rounded-full bg-emerald-900/50 text-emerald-400">
-                          {session.students.filter((s) => s.status === "Present").length}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3 text-center">
-                        <span className="px-2 py-1 rounded-full bg-yellow-900/50 text-yellow-400">
-                          {session.students.filter((s) => s.status === "Late").length}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3 text-center">
-                        <span className="px-2 py-1 rounded-full bg-red-900/50 text-red-400">
-                          {session.students.filter((s) => s.status === "Absent").length}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => setActiveSession(session)}
-                          className="p-2 text-emerald-400 hover:text-white hover:bg-emerald-600/20 rounded-lg transition"
-                        >
-                          <FaListUl />
-                        </button>
-                      </td>
+              {/* DATA GRID TABLE */}
+              <div className="overflow-hidden bg-white rounded-[32px] border border-[#0A3A23]/10 shadow-[0_20px_50px_rgba(10,58,35,0.04)]">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-[#0A3A23] text-white text-[11px] font-black tracking-widest uppercase">
+                      <th className="px-8 py-5 text-left">Date</th>
+                      <th className="px-6 py-5 text-center">Present</th>
+                      <th className="px-6 py-5 text-center">Late</th>
+                      <th className="px-6 py-5 text-center">Absent</th>
+                      <th className="px-8 py-5 text-center w-24">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody className="divide-y divide-[#0A3A23]/5 bg-white text-[#0A3A23]/90">
+                    {group.rows.map((session) => (
+                      <tr key={session._id} className="hover:bg-[#F5F3F0]/40 transition-all duration-200">
+                        <td className="px-8 py-5 font-bold text-xs">
+                          {formatLongDate(session.date)}
+                        </td>
+
+                        <td className="px-6 py-5 text-center">
+                          <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-[#008C45]/10 text-[#008C45]">
+                            {session.students.filter((s) => s.status === "Present").length}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-5 text-center">
+                          <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 text-amber-700">
+                            {session.students.filter((s) => s.status === "Late").length}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-5 text-center">
+                          <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-red-100 text-red-700">
+                            {session.students.filter((s) => s.status === "Absent").length}
+                          </span>
+                        </td>
+
+                        <td className="px-8 py-5 text-center">
+                          <button
+                            onClick={() => setActiveSession(session)}
+                            className="p-2.5 text-[#0A3A23] hover:text-white hover:bg-[#0A3A23] rounded-xl transition-all duration-200 shadow-sm border border-[#0A3A23]/10"
+                          >
+                            <FaListUl size={12} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-gray-400 text-center mt-6">
-          {loading ? "Loading attendance..." : "No attendance found."}
-        </p>
+        /* EMPTY STATE STATE BANNER */
+        <div className="text-center bg-white border border-[#0A3A23]/5 rounded-[32px] py-16 text-xs font-black text-[#0A3A23]/30 uppercase tracking-widest shadow-[0_20px_50px_rgba(10,58,35,0.02)]">
+          <div className="flex flex-col items-center gap-2 justify-center">
+            <FaExclamationTriangle size={16} className="text-[#0A3A23]/30" />
+            <span>{loading ? "Loading attendance logs..." : "No attendance logs found."}</span>
+          </div>
+        </div>
       )}
 
-      {/* ADMIN MODAL */}
+      {/* ADMIN MODAL COMPONENT CONTAINER */}
       {activeSession && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex justify-center items-center">
-          <div className="bg-neutral-900 p-6 rounded-xl w-full max-w-3xl shadow-lg">  
+        <div className="fixed inset-0 z-50 bg-[#0A3A23]/40 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-white p-8 rounded-[28px] w-full max-w-3xl shadow-[0_25px_60px_rgba(10,58,35,0.15)] border border-[#0A3A23]/10">  
             <DailyLogsModalAdmin 
               session={activeSession} 
               onClose={() => setActiveSession(null)} 
