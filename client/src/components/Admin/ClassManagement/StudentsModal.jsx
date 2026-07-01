@@ -1,5 +1,6 @@
+import React from "react";
 import { createPortal } from "react-dom";
-import { FaUsers, FaTimes } from "react-icons/fa";
+import { X, Users, IdCard, BookOpen } from "lucide-react";
 
 const StudentsModal = ({ isOpen, onClose, selectedClass }) => {
   if (!isOpen || !selectedClass) return null;
@@ -21,79 +22,122 @@ const StudentsModal = ({ isOpen, onClose, selectedClass }) => {
     return lastA.localeCompare(lastB);
   });
 
+  // 📐 Expanded Circular Progress Dimensions
+  const attendanceRate = selectedClass.attendance_rate ?? 0;
+  const radius = 68; // Lumaki mula 50 para mas maluwag ang text sa loob
+  const strokeWidth = 8;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (attendanceRate / 100) * circumference;
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fadeIn px-4">
-      <div
-        className="bg-gradient-to-br from-neutral-900/80 to-neutral-950/90 backdrop-blur-xl 
-                   w-full max-w-sm sm:max-w-lg md:max-w-2xl rounded-2xl shadow-2xl 
-                   border border-white/10 p-4 sm:p-6 md:p-8 relative animate-scaleIn"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-white/10 pb-2 sm:pb-3">
-          <h3
-            className="text-lg sm:text-xl md:text-2xl font-extrabold flex items-center gap-2 
-                       bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent"
-          >
-            <FaUsers className="text-emerald-400 text-base sm:text-lg" />
-            Students in {selectedClass.subject_code}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A3A23]/40 backdrop-blur-md animate-fadeIn px-6">
+      {/* Premium Split-Layout Modal Container */}
+      <div className="bg-white w-full max-w-4xl md:min-h-[540px] rounded-[44px] shadow-[0_50px_110px_rgba(10,58,35,0.28)] border border-[#0A3A23]/10 overflow-hidden relative transform transition-all scale-100 max-h-[92vh] flex flex-col md:flex-row animate-scaleIn">
+        
+        {/* Top Floating Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-8 right-8 z-10 p-2.5 rounded-full text-[#0A3A23]/40 hover:text-[#0A3A23] hover:bg-[#F5F3F0] transition-all active:scale-95"
+        >
+          <X size={22} />
+        </button>
+
+        {/* LEFT DECK: Expanded Circular Attendance Progress Panel */}
+        <div className="md:w-1/3 bg-gradient-to-b from-[#0A3A23] to-[#005c2d] p-12 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0">
+          <div className="absolute -top-10 -left-10 w-36 h-36 bg-white/5 rounded-full pointer-events-none" />
+          <div className="absolute -bottom-10 -right-10 w-44 h-44 bg-white/5 rounded-full pointer-events-none" />
+
+          {/* Upgraded & Spacious Circular Progress Gauge */}
+          <div className="relative w-44 h-44 flex items-center justify-center mb-8">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
+              {/* Background Track Circle */}
+              <circle
+                cx="80"
+                cy="80"
+                r={radius}
+                className="stroke-white/10"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+              />
+              {/* Active Progress Circle */}
+              <circle
+                cx="80"
+                cy="80"
+                r={radius}
+                className="stroke-white transition-all duration-1000 ease-out"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+              />
+            </svg>
+            {/* Perfectly Spaced Inner Text Centerpiece */}
+            <div className="absolute flex flex-col items-center justify-center px-4">
+              <span className="text-3xl font-black text-white tracking-tight">
+                {attendanceRate}%
+              </span>
+              <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest mt-1">
+                Attendance
+              </span>
+            </div>
+          </div>
+
+          {/* Left Metadata Tagging Section */}
+          <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 mb-6 backdrop-blur-md">
+            <Users size={12} className="text-white" /> Class Roster
+          </span>
+
+          <h3 className="text-2xl font-black text-white tracking-tight leading-tight max-w-[200px] break-words">
+            {selectedClass.subject_code}
           </h3>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full bg-neutral-800/60 hover:bg-rose-600/60 
-                       text-neutral-400 hover:text-white transition"
-          >
-            <FaTimes className="text-base sm:text-lg" />
-          </button>
-        </div>
-
-        {/* Attendance Rate */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 text-base sm:text-lg">
-            <span className="text-sm text-neutral-400 font-medium">Attendance Rate:</span>
-            <span
-              className="text-lg sm:text-xl font-bold 
-                         bg-gradient-to-r from-emerald-400 to-green-500 
-                         bg-clip-text text-transparent"
-            >
-              {selectedClass.attendance_rate ?? 0}%
-            </span>
-          </div>
-        </div>
-
-        {/* Student List */}
-        {sortedStudents.length > 0 ? (
-          <div className="max-h-72 sm:max-h-96 overflow-y-auto pr-1 sm:pr-2 custom-scroll">
-            <ul className="divide-y divide-neutral-800">
-              {sortedStudents.map((st, idx) => (
-                <li
-                  key={idx}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between 
-                             gap-2 sm:gap-0 py-3 px-3 sm:px-4 rounded-lg 
-                             hover:bg-gradient-to-r hover:from-emerald-500/10 hover:to-green-600/10 
-                             transition-all duration-200"
-                >
-                  <div className="text-center sm:text-left">
-                    <p className="text-white font-medium text-sm sm:text-base">
-                      {formatName(st.first_name)} {formatName(st.last_name)}
-                    </p>
-                  </div>
-
-                  <span
-                    className="text-xs sm:text-sm font-semibold text-emerald-400 
-                               bg-emerald-500/10 px-3 py-1 rounded-lg 
-                               border border-emerald-400/30 shadow-sm text-center"
-                  >
-                    {st.student_id}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="italic text-neutral-500 text-center py-12 text-sm sm:text-base">
-            No students enrolled yet
+          <p className="text-xs font-medium text-white/70 mt-2 max-w-[200px] break-words">
+            {selectedClass.subject_title}
           </p>
-        )}
+        </div>
+
+        {/* RIGHT DECK: Modern Maximized Student List */}
+        <div className="flex-1 p-12 md:p-14 space-y-8 overflow-y-auto flex flex-col">
+          
+          {/* Header Typography Elements */}
+          <div className="space-y-1 text-left">
+            <span className="text-[10px] font-black text-[#008C45] uppercase tracking-widest block">Active Enrollees</span>
+            <h2 className="text-3xl font-black text-[#0A3A23] tracking-tight">Student List</h2>
+          </div>
+
+          {/* Student Interactive Grid Container */}
+          <div className="flex-1">
+            {sortedStudents.length > 0 ? (
+              <div className="max-h-[440px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-3">
+                  {sortedStudents.map((st, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between bg-[#F5F3F0]/60 border border-[#0A3A23]/5 p-5 rounded-2xl hover:bg-white hover:border-[#0A3A23]/20 hover:shadow-sm transition-all duration-200"
+                    >
+                      <div className="text-left">
+                        <span className="text-base font-extrabold text-[#0A3A23] block leading-snug">
+                          {formatName(st.first_name)} {formatName(st.last_name)}
+                        </span>
+                      </div>
+
+                      <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-[#008C45] bg-[#0A3A23]/5 px-3 py-1.5 rounded-xl border border-[#0A3A23]/5">
+                        <IdCard size={14} /> {st.student_id}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 bg-[#F5F3F0]/30 rounded-3xl border border-dashed border-[#0A3A23]/10">
+                <BookOpen className="text-[#0A3A23]/20 mb-3" size={32} />
+                <p className="text-[#0A3A23]/40 text-sm font-bold tracking-tight">No students enrolled yet</p>
+              </div>
+            )}
+          </div>
+
+        </div>
+
       </div>
     </div>,
     document.body
