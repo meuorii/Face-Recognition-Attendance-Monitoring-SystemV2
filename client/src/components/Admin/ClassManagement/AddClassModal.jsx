@@ -29,6 +29,32 @@ const DAYS_OPTIONS = [
   { label: "Sun", value: "Sun" },
 ];
 
+// Pulls just the leading digit out of a year_level value, no matter how it's formatted
+// (handles 1, "1", "1st Year", "Year 1", etc.) so we never double up the suffix.
+const extractYearDigit = (yearLevel) => {
+  const match = String(yearLevel ?? "").match(/\d+/);
+  return match ? match[0] : "";
+};
+
+const getYearSuffix = (digit) =>
+  digit === "1" ? "st" :
+  digit === "2" ? "nd" :
+  digit === "3" ? "rd" : "th";
+
+// Converts any raw year_level value into a short readable label, e.g. "1st Yr"
+const getYearLevelLabel = (yearLevel) => {
+  const digit = extractYearDigit(yearLevel);
+  if (!digit) return "";
+  return `${digit}${getYearSuffix(digit)} Yr`;
+};
+
+// Same idea but full word, e.g. "1st Year" — used for the Year Level display field
+const getYearLevelFull = (yearLevel) => {
+  const digit = extractYearDigit(yearLevel);
+  if (!digit) return "Automatic";
+  return `${digit}${getYearSuffix(digit)} Year`;
+};
+
 const AddClassModal = ({ isOpen, onClose, onAdded }) => {
   const [loading, setLoading] = useState(false);
   const [creationMode, setCreationMode] = useState("pdf"); // 'pdf' or 'manual'
@@ -254,7 +280,7 @@ const AddClassModal = ({ isOpen, onClose, onAdded }) => {
         selected_subject_id: subjectId,
         subject_code: targetSubj.subject_code,
         subject_title: targetSubj.subject_title,
-        year_level: targetSubj.year_level ? String(targetSubj.year_level) : "1"
+        year_level: extractYearDigit(targetSubj.year_level) || "1"
       }));
     }
   };
@@ -373,7 +399,7 @@ const AddClassModal = ({ isOpen, onClose, onAdded }) => {
         subject_code: manualForm.subject_code,
         subject_title: manualForm.subject_title,
         course: adminProgram,
-        year_level: manualForm.year_level,
+        year_level: getYearLevelFull(manualForm.year_level),
         section: manualForm.section,
         instructor_id: manualForm.instructor_id,
         schedule_blocks: cleanedBlocks,
@@ -706,7 +732,7 @@ const AddClassModal = ({ isOpen, onClose, onAdded }) => {
                     </option>
                     {filteredSubjects.map(subj => (
                       <option key={subj._id} value={subj._id}>
-                        {subj.subject_code} - {subj.subject_title}
+                        {subj.subject_title} ({subj.subject_code}){subj.year_level ? ` — ${getYearLevelLabel(subj.year_level)}` : ""}
                       </option>
                     ))}
                   </select>
@@ -731,11 +757,7 @@ const AddClassModal = ({ isOpen, onClose, onAdded }) => {
                     <span className="text-[9px] font-black text-[#0A3A23]/40 uppercase tracking-wider mb-1 block">Year Level</span>
                     <input
                       type="text"
-                      value={
-                        manualForm.year_level 
-                          ? `${manualForm.year_level}${manualForm.year_level === "1" ? "st" : manualForm.year_level === "2" ? "nd" : manualForm.year_level === "3" ? "rd" : "th"} Year`
-                          : "Automatic"
-                      }
+                      value={getYearLevelFull(manualForm.year_level)}
                       disabled
                       className="bg-transparent text-sm font-black text-[#0A3A23]/60 outline-none cursor-not-allowed"
                     />
