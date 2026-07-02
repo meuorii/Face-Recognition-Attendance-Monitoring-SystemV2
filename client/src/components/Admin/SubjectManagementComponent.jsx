@@ -5,14 +5,17 @@ import { toast } from "react-toastify";
 import { 
   FaSlidersH, 
   FaCalendarCheck, 
-  FaExclamationTriangle 
+  FaExclamationTriangle,
+  FaPlus 
 } from "react-icons/fa";
 import SemesterManagementModal from "./SubjectManagement/SemesterManagementModal";
+import AddSubjectModal from "./SubjectManagement/AddSubjectModal";
 
 export default function SubjectManagementComponent() {
   const [subjects, setSubjects] = useState([]);
   const [activeSemester, setActiveSemester] = useState(null);
   const [showSemesterModal, setShowSemesterModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [curriculums, setCurriculums] = useState([]);
   const [selectedCurriculum, setSelectedCurriculum] = useState("");
 
@@ -104,8 +107,8 @@ export default function SubjectManagementComponent() {
           </p>
         </div>
 
-        {/* Toolbar Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-1 lg:max-w-xl justify-end">
+        {/* Toolbar Controls Section */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-1 lg:max-w-2xl justify-end w-full">
           
           {/* CURRICULUM DROPDOWN SELECTOR */}
           {curriculums.length > 0 && (
@@ -130,9 +133,17 @@ export default function SubjectManagementComponent() {
           {/* MANAGE SEMESTERS TRIGGER BUTTON */}
           <button
             onClick={() => setShowSemesterModal(true)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#0A3A23] hover:bg-[#008C45] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5"
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-[#0A3A23] hover:bg-[#008C45] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5 whitespace-nowrap"
           >
             <FaSlidersH /> Manage Semesters
+          </button>
+
+          {/* ADD SUBJECT BUTTON (Inilipat dito sa loob ng Tools section) */}
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-[#008C45] hover:bg-[#0A3A23] text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all duration-300 hover:-translate-y-0.5 whitespace-nowrap"
+          >
+            <FaPlus /> Add Subject
           </button>
         </div>
       </div>
@@ -253,6 +264,16 @@ export default function SubjectManagementComponent() {
         isOpen={showSemesterModal}
         onClose={() => setShowSemesterModal(false)}
         onRefresh={fetchActiveSemesterSubjects}
+      />
+
+      {/* ADD SUBJECT MODAL */}
+      <AddSubjectModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdded={() => {
+          fetchCurriculums();
+          fetchActiveSemesterSubjects();
+        }}
       />
 
     </div>
