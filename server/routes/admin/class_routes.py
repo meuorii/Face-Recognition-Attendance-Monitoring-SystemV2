@@ -82,7 +82,7 @@ def get_all_classes():
 
     return jsonify(output), 200
 
-#Create Class
+# Create Class
 @admin_bp.route("/api/admin/create-class", methods=["POST"])
 @jwt_required()
 def create_class():
@@ -99,18 +99,28 @@ def create_class():
 
     if not all(data.get(field) for field in required_fields):
         return jsonify({"error": "Missing required fields"}), 400
-    
+        
     if data["course"].upper() != admin_program:
         return jsonify({"error": "You are not allowed to create a class for another program"}), 403
-    
+        
+    schedule_blocks = data.get("schedule_blocks", [])
+    if not schedule_blocks:
+        return jsonify({"error": "Schedule blocks are required and cannot be empty"}), 400
+
+    for block in schedule_blocks:
+        if not block.get("days") or not isinstance(block.get("days"), list):
+            return jsonify({"error": "Each schedule block must have a valid list of 'days'"}), 400
+        if not block.get("start") or not block.get("end"):
+            return jsonify({"error": "Each schedule block must have both 'start' and 'end' times"}), 400
+        
     active_sem = semesters_col.find_one({"is_active": True})
     if not active_sem:
         return jsonify({"error": "No active semester found. Please set an active semester first."}), 400
-    
+        
     instructor = instructors_col.find_one({"instructor_id": data["instructor_id"]})
     if not instructor:
         return jsonify({"error": "Instructor not found"}), 404
-    
+        
     new_class = {
         "subject_code": data["subject_code"],
         "subject_title": data["subject_title"],
@@ -119,7 +129,7 @@ def create_class():
         "semester": active_sem["semester_name"],
         "school_year": active_sem["school_year"],
         "section": data["section"],
-        "schedule_blocks": data.get("schedule_blocks", []),
+        "schedule_blocks": schedule_blocks, 
         "instructor_id": instructor["instructor_id"],
         "instructor_first_name": instructor["first_name"],
         "instructor_last_name": instructor["last_name"],
@@ -386,7 +396,6 @@ def upload_students_to_class(class_id):
             "instructor_first_name": instructor_first_name,
             "instructor_last_name": instructor_last_name,
             "students": students_list,
-            "schedule_blocks": []
             }}
         )
 
