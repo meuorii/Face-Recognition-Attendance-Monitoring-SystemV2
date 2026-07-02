@@ -18,6 +18,7 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
 
   const API_URL = "http://127.0.0.1:8080";
 
+  /* STREAMING_CHUNK: Fetching admin profile for context... */
   // Auto-fetch ng current admin program/course para hindi na kailangang i-type manu-mano
   useEffect(() => {
     if (isOpen) {
@@ -50,6 +51,7 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  /* STREAMING_CHUNK: Formatting form inputs for submission... */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -57,17 +59,27 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
       return toast.error("Please fill in all required fields");
     }
 
+    // Siguraduhing walang "CY" o "CY " sa unahan ng curriculum input (hal. "CY 2022" -> "2022")
+    const cleanCurriculum = form.curriculum.replace(/^CY\s*/i, "").trim().toUpperCase();
+
+    // Dito natin kino-convert ang mahabang UI format patungo sa gustong format ng iyong backend API para sa Semester
+    let backendSemester = form.semester;
+    if (form.semester === "1st Semester") backendSemester = "1st Sem";
+    if (form.semester === "2nd Semester") backendSemester = "2nd Sem";
+    if (form.semester === "Mid Year") backendSemester = "Summer";
+
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
 
+      // Ang year_level ay ipapadala na ngayon bilang full string (hal. "1st Year", "2nd Year", atbp.)
       const payload = {
         subject_code: form.subject_code.trim().toUpperCase(),
         subject_title: form.subject_title.trim(),
-        course: adminProgram, // Galing sa profile ng admin account
-        year_level: form.year_level,
-        semester: form.semester,
-        curriculum: form.curriculum.trim().toUpperCase()
+        course: adminProgram, 
+        year_level: form.year_level, 
+        semester: backendSemester, 
+        curriculum: cleanCurriculum
       };
 
       const res = await axios.post(`${API_URL}/api/admin/subjects`, payload, {
@@ -88,6 +100,7 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
 
   if (!isOpen) return null;
 
+  /* STREAMING_CHUNK: Rendering form layouts and portals... */
   return createPortal(
     <div className="fixed inset-0 bg-[#0A3A23]/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-200">
       <div className="bg-[#F5F3F0] w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row border border-neutral-200 min-h-[480px]">
@@ -140,7 +153,7 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
               <FormField
                 label="Curriculum Track"
                 type="text"
-                placeholder="e.g. CY 2026"
+                placeholder="e.g. 2022"
                 value={form.curriculum}
                 onChange={(val) => handleInputChange("curriculum", val)}
               />
@@ -158,7 +171,7 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
             {/* Row 3: Operational Dropdowns (Year Level & Semester) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
-              {/* Year Level Select */}
+              {/* Year Level Select (Pinalitan ang value para isumite ang buong string) */}
               <div className="flex flex-col rounded-xl p-3.5 border border-neutral-300 bg-[#F5F3F0]/40 focus-within:bg-white focus-within:border-[#008C45] focus-within:ring-2 focus-within:ring-[#008C45]/10 transition-all">
                 <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">
                   Year Level
@@ -171,10 +184,10 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
                     className="w-full bg-transparent text-sm font-semibold text-neutral-800 outline-none appearance-none cursor-pointer"
                   >
                     <option value="">Select Year</option>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
                   </select>
                 </div>
               </div>
@@ -229,7 +242,6 @@ export default function AddSubjectModal({ isOpen, onClose, onAdded }) {
   );
 }
 
-/* Symmetrical Text Field Input Sub-component */
 function FormField({ label, type, placeholder, value, onChange }) {
   return (
     <div className="flex flex-col rounded-xl p-3.5 border border-neutral-300 bg-[#F5F3F0]/40 focus-within:bg-white focus-within:border-[#008C45] focus-within:ring-2 focus-within:ring-[#008C45]/10 transition-all w-full">
