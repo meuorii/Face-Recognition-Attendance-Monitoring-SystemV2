@@ -534,3 +534,86 @@ def get_class_students(id):
 
     except Exception as e:
         return jsonify({"error": f"Invalid ID format or server error: {str(e)}"}), 400
+
+# Create Class Manually (With Direct Student Selection Array)
+@admin_bp.route("/api/admin/create-class-manual", methods=["POST"])
+@jwt_required()
+def create_class_manual():
+    admin_program = _admin_program() 
+    data = request.get_json() or {}
+    
+    required_fields = [
+        "subject_code",
+        "subject_title",
+        "course",
+        "year_level",
+        "section",
+        "instructor_id",
+    ]
+
+    # 1. Validate core metadata requirements
+    if not all(data.get(field) for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    if data["course"].upper() != admin_program:
+        return jsonify({"error": "You are not allowed to create a class for another program"}), 403
+    
+    # 2. Automatically grab active semester config
+    active_sem = semesters_col.find_one({"is_active": True})
+    if not active_sem:
+        return jsonify({"error": "No active semester found. Please set an active semester first."}), 400
+    
+    # 3. Verify Instructor existence
+    instructor = instructors_col.find_one({"instructor_id": data["instructor_id"]})
+    if not instructor:
+        return jsonify({"error": "Instructor not found"}), 404
+
+    # 4. Process selected students array from the manual UI picker
+    students_list = []
+    input_students = data.get("students", [])
+
+    if isinstance(input_students, list) and len(input_students) > 0:
+        for item in input_students:
+            sid = item.get("student_id")
+            if not sid:
+                continue
+
+            # Double check with DB to ensure we get accurate case-insensitive names
+            stu = students_col.find_one({"student_id": sid})
+            if stu:
+                students_list.append({
+                    "student_id": sid,
+                    # Safe handling for both lowercase and PascalCase database records
+                    "first_name": (stu.get("first_name") or stu.get("First_Name") or "").strip(),
+                    "last_name": (stu.get("last_name") or stu.get("Last_Name") or "").strip(),
+                    "course": stu.get("course") or stu.get("Course") or data["course"],
+                    "section": stu.get("section") or stu.get("Section") or data["section"]
+                })
+    
+    # 5. Build payload structure
+    new_class = {
+        "subject_code": data["subject_code"],
+        "subject_title": data["subject_title"],
+        "course": data["course"].upper(),
+        "year_level": data["year_level"],
+        "semester": active_sem["semester_name"],
+        "school_year": active_sem["school_year"],
+        "section": data["section"],
+        "schedule_blocks": data.get("schedule_blocks", []),
+        "instructor_id": instructor["instructor_id"],
+        "instructor_first_name": instructor["first_name"],
+        "instructor_last_name": instructor["last_name"],
+        "students": students_list,  
+        "is_attendance_active": False,
+        "attendance_start_time": None,
+        "attendance_end_time": None,
+        "created_at": datetime.utcnow(),
+    }
+
+    result = classes_col.insert_one(new_class)
+    cls = classes_col.find_one({"_id": result.inserted_id})
+
+    return jsonify({ 
+        "created_class": serialize_class(cls), 
+        "message": "Class Created Manually with Roster Successfully" 
+    }), 200
