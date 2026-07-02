@@ -57,24 +57,21 @@ def get_current_semester():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-#Update Semester
+# Update Semester
 @admin_bp.route("/api/admin/semester", methods=["PUT"])
 def update_single_semester():
     try:
         data = request.get_json() or {}
-        required = ["semester_name", "start_date", "end_date"]
+        
+        required = ["semester_name", "school_year", "start_date", "end_date"]
         if not all(data.get(f) for f in required):
             return jsonify({"error": "Missing required fields"}), 400
         
         normalized_semester = normalize_semester(data["semester_name"])
 
-        start_year = int(data["start_date"][:4])
-        start_month = int(data["start_date"][5:7])
-        school_year = f"{start_year - 1}-{start_year}" if start_month <= 7 else f"{start_year}-{start_year + 1}"
-
         update_data = {
             "semester_name": normalized_semester,
-            "school_year": school_year,
+            "school_year": data["school_year"].strip(), 
             "start_date": data["start_date"],
             "end_date": data["end_date"],
             "is_active": True,
