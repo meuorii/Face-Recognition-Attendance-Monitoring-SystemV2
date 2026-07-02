@@ -13,6 +13,18 @@ export default function SemesterManagementModal({ isOpen, onClose, onRefresh }) 
 
   const API_BASE = "http://127.0.0.1:8080/api/admin";
 
+  // Helper para siguraduhing malinis ang display sa Status Overview at hindi maging "1st Sem"
+  const formatDisplaySemester = (name) => {
+    if (!name) return "";
+    const cleanName = name.trim().toLowerCase();
+    
+    if (cleanName.includes("1st")) return "1st Semester";
+    if (cleanName.includes("2nd")) return "2nd Semester";
+    if (cleanName.includes("summer") || cleanName.includes("mid")) return "Mid Year";
+    
+    return name; // fallback
+  };
+
   const computeSchoolYear = (dateStr) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -41,7 +53,15 @@ export default function SemesterManagementModal({ isOpen, onClose, onRefresh }) 
 
       const sem = res.data;
       setSemester(sem);
-      setSemesterName(sem.semester_name || "");
+      
+      // I-map ang database value para mag-match sa dropdown select input natin
+      const displayForm = formatDisplaySemester(sem.semester_name);
+      if (displayForm === "Mid Year") {
+        setSemesterName("Summer");
+      } else {
+        setSemesterName(displayForm || "");
+      }
+
       setStartDate(sem.start_date || "");
       setEndDate(sem.end_date || "");
       setSchoolYear(sem.school_year || computeSchoolYear(sem.start_date));
@@ -57,12 +77,15 @@ export default function SemesterManagementModal({ isOpen, onClose, onRefresh }) 
     if (!semesterName || !schoolYear || !startDate || !endDate)
       return toast.error("Please fill in all details");
 
+    // I-convert sa "Mid Year" bago ipadala sa backend API
+    const finalSemesterName = semesterName === "Summer" ? "Mid Year" : semesterName;
+
     try {
       const token = localStorage.getItem("token");
       await axios.put(
         `${API_BASE}/semester`,
         {
-          semester_name: semesterName,
+          semester_name: finalSemesterName,
           school_year: schoolYear,
           start_date: startDate,
           end_date: endDate,
@@ -128,7 +151,10 @@ export default function SemesterManagementModal({ isOpen, onClose, onRefresh }) 
             {semester ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-white">{semester.semester_name}</span>
+                  {/* Ginamit ang formatter dito para malinis ang pagka-render kahit ano pa ang nasa database text mo */}
+                  <span className="text-sm font-bold text-white">
+                    {formatDisplaySemester(semester.semester_name)}
+                  </span>
                   <span className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-emerald-200">
                     {semester.school_year}
                   </span>
@@ -176,7 +202,7 @@ export default function SemesterManagementModal({ isOpen, onClose, onRefresh }) 
                   <option value="">Select Option</option>
                   <option value="1st Semester">1st Semester</option>
                   <option value="2nd Semester">2nd Semester</option>
-                  <option value="Summer">Summer</option>
+                  <option value="Summer">Summer (Mid Year)</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-neutral-500">
                   <svg className="fill-current h-4 w-4" viewBox="0 0 20 20">
