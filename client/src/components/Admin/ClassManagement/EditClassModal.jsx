@@ -323,7 +323,7 @@ const EditClassModal = ({ isOpen, editClass, setEditClass, onClose, onSave }) =>
                       {/* 🛠️ FIXED TIME INPUT CONTAINERS: Pinalawak gamit ang strict explicit spacing para iwas-bawas sa AM/PM */}
                       <div className="flex items-center justify-between gap-2 bg-white border border-[#0A3A23]/5 rounded-xl p-2 w-full lg:w-auto flex-1">
                         <div className="text-left flex-1 min-w-[115px]">
-                          <span className="text-[7px] font-black text-[#0A3A23]/30 uppercase block flex items-center gap-0.5">
+                          <span className="text-[7px] font-black text-[#0A3A23]/30 uppercas flex items-center gap-0.5">
                             <Clock size={8} /> Start
                           </span>
                           <input
@@ -339,7 +339,7 @@ const EditClassModal = ({ isOpen, editClass, setEditClass, onClose, onSave }) =>
                         </div>
                         <span className="text-[9px] text-[#0A3A23]/30 font-black uppercase self-end pb-1 px-1">to</span>
                         <div className="text-left flex-1 min-w-[115px]">
-                          <span className="text-[7px] font-black text-[#0A3A23]/30 uppercase block flex items-center gap-0.5">
+                          <span className="text-[7px] font-black text-[#0A3A23]/30 uppercase flex items-center gap-0.5">
                             <Clock size={8} /> End
                           </span>
                           <input
