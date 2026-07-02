@@ -107,6 +107,7 @@ export default function SemesterManagementModal({ isOpen, onClose, onRefresh }) 
       toast.success("Settings updated successfully");
       fetchSemester();
       onRefresh();
+      onClose();
     } catch (err) {
       console.error(err);
       toast.error("Failed to update schedule settings.");
